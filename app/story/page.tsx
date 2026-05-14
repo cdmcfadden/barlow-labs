@@ -15,7 +15,7 @@ const sections = [
   {
     eyebrow: "Chapter 02",
     title: "Our Emerging Journey",
-    body: "What started as a single idea became a complex set of nested products, requiring sequential development, testing, and refinement for PMF and scale. This has required the founding of an innovation lab for core platform and product concept refinement. Products prove their human value, then their market value, and then each is graduated out of Barlow Labs and advanced into a stand alone venture, receiving incrementally more resourcing and funding. Our goal is to maintain a constant innovation drumbeat.",
+    body: "What started as a single idea became a set of nested products, requiring sequential development, testing, and refinement for PMF and scale. This has required the founding of an innovation lab for core platform and product concept refinement. Products prove their human value, then their market value, and then each is graduated out of Barlow Labs and advanced into a stand alone venture, receiving incrementally more resourcing and funding. Our goal is to maintain a constant innovation drumbeat.",
   },
   {
     eyebrow: "Chapter 03",
