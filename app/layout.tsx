@@ -42,6 +42,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Our Story
                 </Link>
               </li>
+              <li>
+                <Link href="/house360" className="text-muted-foreground hover:text-foreground transition-colors">
+                  House360
+                </Link>
+              </li>
             </ul>
           </nav>
         </header>
@@ -49,7 +54,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="border-t border-border/60 mt-24">
           <div className="mx-auto max-w-6xl px-6 py-10 text-sm text-muted-foreground flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p>© {new Date().getFullYear()} Barlow Labs. Seattle, WA.</p>
-            <p>Pioneering the future through innovation, data, and cutting-edge technology.</p>
+            <div className="flex items-center gap-6">
+              <Link href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy Policy
+              </Link>
+              <Link href="/terms" className="hover:text-foreground transition-colors">
+                Terms &amp; Conditions
+              </Link>
+            </div>
           </div>
         </footer>
       </body>
