@@ -5,7 +5,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Barlow Labs | Innovation, Data, Technology",
   description: "Pioneering the future through innovation, data, and cutting-edge technology",
-  icons: { icon: "/favicon.jpeg" },
+  icons: {
+    icon: "/favicon.png",
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "Barlow Labs",
     description: "Pioneering the future through innovation, data, and cutting-edge technology",
