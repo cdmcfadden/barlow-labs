@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,8 +29,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen antialiased">
         <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur">
           <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-2 group">
-              <span className="inline-block h-8 w-8 rounded-md bg-gradient-to-br from-primary to-accent" aria-hidden />
+            <Link href="/" className="flex items-center gap-2.5 group">
+              <span className="inline-flex items-center justify-center rounded-md bg-white px-1.5 py-1 shadow-sm">
+                <Image
+                  src="/logo.png"
+                  alt="Barlow Labs logo"
+                  width={320}
+                  height={205}
+                  priority
+                  className="h-6 w-auto"
+                />
+              </span>
               <span className="text-lg font-semibold tracking-tight group-hover:text-accent transition-colors">
                 Barlow Labs
               </span>
