@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import BootstrapperTable from "./BootstrapperTable";
 import DocumentsArea from "./DocumentsArea";
@@ -22,12 +21,14 @@ export default async function MembersPage() {
       <BootstrapperTable />
       <DocumentsArea />
       <div className="mt-8">
-        <Link
-          href="/api/auth/logout"
-          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
-        >
-          Sign out
-        </Link>
+        <form action="/api/auth/logout" method="post">
+          <button
+            type="submit"
+            className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground transition-colors"
+          >
+            Sign out
+          </button>
+        </form>
       </div>
     </section>
   );
