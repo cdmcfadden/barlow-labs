@@ -117,7 +117,7 @@ export default function BootstrapperTable() {
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold tracking-tight">Founder Pipeline</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Bootstrapper Details</h2>
         <span className="text-xs text-muted-foreground">
           {saving > 0 ? "Saving…" : justSaved ? "Saved" : "Click any cell to edit"}
         </span>

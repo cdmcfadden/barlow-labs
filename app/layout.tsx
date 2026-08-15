@@ -60,6 +60,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   House360
                 </Link>
               </li>
+              <li>
+                <Link href="/members" className="text-muted-foreground hover:text-foreground transition-colors">
+                  Members
+                </Link>
+              </li>
             </ul>
           </nav>
         </header>
