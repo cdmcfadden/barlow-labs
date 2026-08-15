@@ -11,7 +11,7 @@ const COLUMNS: {
   readonly?: boolean;
 }[] = [
   { key: "karma", label: "Karma", width: "w-20", readonly: true },
-  { key: "bootstrapper", label: "Bootstrapper", width: "w-44" },
+  { key: "bootstrapper", label: "Name", width: "w-44" },
   { key: "product", label: "Product", width: "w-40" },
   { key: "website", label: "Website", width: "w-44" },
   {
@@ -38,7 +38,7 @@ const COLUMNS: {
   },
   {
     key: "category",
-    label: "Dedication",
+    label: "Bootstrap",
     width: "w-36",
     options: ["Founder", "Founder-Curious", "Side Projects"],
   },
