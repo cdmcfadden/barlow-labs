@@ -8,7 +8,9 @@ const COLUMNS: {
   label: string;
   width?: string;
   options?: string[];
+  readonly?: boolean;
 }[] = [
+  { key: "karma", label: "Karma", width: "w-20", readonly: true },
   { key: "bootstrapper", label: "Bootstrapper", width: "w-44" },
   {
     key: "category",
@@ -139,10 +141,16 @@ export default function BootstrapperTable() {
               <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                 {COLUMNS.map((c) => (
                   <td key={c.key} className="px-1 py-0.5">
-                    {c.options ? (
+                    {c.readonly ? (
+                      <span className="block px-2 py-1.5 font-medium tabular-nums">
+                        {row[c.key]}
+                      </span>
+                    ) : c.options ? (() => {
+                      const cell = String(row[c.key]);
+                      return (
                       <select
                         className="w-full appearance-none rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30 [&>option]:bg-background [&>option]:text-foreground"
-                        value={row[c.key]}
+                        value={cell}
                         onChange={(e) => {
                           const value = e.target.value;
                           setRows((r) =>
@@ -151,24 +159,28 @@ export default function BootstrapperTable() {
                           saveCell(row.id, c.key, value);
                         }}
                       >
-                        {row[c.key] === "" && <option value="" />}
-                        {!c.options.includes(row[c.key]) && row[c.key] !== "" && (
-                          <option value={row[c.key]}>{row[c.key]}</option>
+                        {cell === "" && <option value="" />}
+                        {!c.options!.includes(cell) && cell !== "" && (
+                          <option value={cell}>{cell}</option>
                         )}
-                        {c.options.map((o) => (
+                        {c.options!.map((o) => (
                           <option key={o} value={o}>
                             {o}
                           </option>
                         ))}
                       </select>
-                    ) : (
+                      );
+                    })() : (
                       <input
                         className="w-full rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30"
-                        defaultValue={row[c.key]}
+                        defaultValue={String(row[c.key])}
                         onBlur={(e) => {
-                          if (e.target.value !== row[c.key]) {
-                            row[c.key] = e.target.value;
-                            saveCell(row.id, c.key, e.target.value);
+                          const value = e.target.value;
+                          if (value !== String(row[c.key])) {
+                            setRows((r) =>
+                              r ? r.map((x) => (x.id === row.id ? { ...x, [c.key]: value } : x)) : r
+                            );
+                            saveCell(row.id, c.key, value);
                           }
                         }}
                         onKeyDown={(e) => {

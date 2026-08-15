@@ -10,6 +10,7 @@ export function getSql() {
 
 export type Bootstrapper = {
   id: number;
+  karma: number;
   bootstrapper: string;
   category: string;
   product: string;

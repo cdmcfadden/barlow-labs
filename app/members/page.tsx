@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import BootstrapperTable from "./BootstrapperTable";
+import LanternflySection from "./LanternflySection";
 import DocumentsArea from "./DocumentsArea";
 
 export const metadata = { title: "Members | Barlow Labs" };
@@ -19,6 +20,7 @@ export default async function MembersPage() {
         This area is only visible to members of the Barlow Labs Slack workspace.
       </p>
       <BootstrapperTable />
+      {session && <LanternflySection me={{ sub: session.sub, name: session.name }} />}
       <DocumentsArea />
       <div className="mt-8">
         <form action="/api/auth/logout" method="post">
