@@ -3,13 +3,43 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Bootstrapper } from "@/lib/db";
 
-const COLUMNS: { key: keyof Omit<Bootstrapper, "id">; label: string; width?: string }[] = [
+const COLUMNS: {
+  key: keyof Omit<Bootstrapper, "id">;
+  label: string;
+  width?: string;
+  options?: string[];
+}[] = [
   { key: "bootstrapper", label: "Bootstrapper", width: "w-44" },
-  { key: "category", label: "Category", width: "w-36" },
+  {
+    key: "category",
+    label: "Category",
+    width: "w-36",
+    options: ["Founder", "Founder-Curious", "Side Projects"],
+  },
   { key: "product", label: "Product", width: "w-44" },
-  { key: "stage", label: "Stage", width: "w-40" },
-  { key: "hrs_wk", label: "Hrs / Wk", width: "w-24" },
-  { key: "ask", label: "Ask", width: "w-32" },
+  {
+    key: "stage",
+    label: "Stage",
+    width: "w-40",
+    options: [
+      "Ideation",
+      "POC",
+      "Development",
+      "MVP",
+      "Early Distribution",
+      "Active Sales",
+      "Launched",
+      "On Hold",
+      "TBD",
+    ],
+  },
+  { key: "hrs_wk", label: "Hrs / Wk", width: "w-24", options: ["<10", "10-40", ">40"] },
+  {
+    key: "ask",
+    label: "Ask",
+    width: "w-32",
+    options: ["Testing", "Advice / Input", "TBD", "N/A"],
+  },
   { key: "notes", label: "Notes" },
 ];
 
@@ -28,7 +58,12 @@ export default function BootstrapperTable() {
       setRows(data.rows);
       setError(null);
     } catch {
-      setError("Couldn't load the table. Refresh to try again.");
+      // Only surface load errors when we have nothing to show; a failed
+      // background poll shouldn't wipe out a table that's already rendered.
+      setRows((r) => {
+        if (!r) setError("Couldn't load the table. Refresh to try again.");
+        return r;
+      });
     }
   }, []);
 
@@ -104,19 +139,43 @@ export default function BootstrapperTable() {
               <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                 {COLUMNS.map((c) => (
                   <td key={c.key} className="px-1 py-0.5">
-                    <input
-                      className="w-full rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30"
-                      defaultValue={row[c.key]}
-                      onBlur={(e) => {
-                        if (e.target.value !== row[c.key]) {
-                          row[c.key] = e.target.value;
-                          saveCell(row.id, c.key, e.target.value);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                      }}
-                    />
+                    {c.options ? (
+                      <select
+                        className="w-full appearance-none rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30 [&>option]:bg-background [&>option]:text-foreground"
+                        value={row[c.key]}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setRows((r) =>
+                            r ? r.map((x) => (x.id === row.id ? { ...x, [c.key]: value } : x)) : r
+                          );
+                          saveCell(row.id, c.key, value);
+                        }}
+                      >
+                        {row[c.key] === "" && <option value="" />}
+                        {!c.options.includes(row[c.key]) && row[c.key] !== "" && (
+                          <option value={row[c.key]}>{row[c.key]}</option>
+                        )}
+                        {c.options.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="w-full rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30"
+                        defaultValue={row[c.key]}
+                        onBlur={(e) => {
+                          if (e.target.value !== row[c.key]) {
+                            row[c.key] = e.target.value;
+                            saveCell(row.id, c.key, e.target.value);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        }}
+                      />
+                    )}
                   </td>
                 ))}
                 <td className="px-2 py-0.5 text-center">
