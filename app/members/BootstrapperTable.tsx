@@ -12,13 +12,8 @@ const COLUMNS: {
 }[] = [
   { key: "karma", label: "Karma", width: "w-20", readonly: true },
   { key: "bootstrapper", label: "Bootstrapper", width: "w-44" },
-  {
-    key: "category",
-    label: "Category",
-    width: "w-36",
-    options: ["Founder", "Founder-Curious", "Side Projects"],
-  },
-  { key: "product", label: "Product", width: "w-44" },
+  { key: "product", label: "Product", width: "w-40" },
+  { key: "website", label: "Website", width: "w-44" },
   {
     key: "stage",
     label: "Stage",
@@ -35,13 +30,19 @@ const COLUMNS: {
       "TBD",
     ],
   },
-  { key: "hrs_wk", label: "Hrs / Wk", width: "w-24", options: ["<10", "10-40", ">40"] },
   {
     key: "ask",
     label: "Ask",
     width: "w-32",
-    options: ["Testing", "Advice / Input", "TBD", "N/A"],
+    options: ["Testing", "Advice / Input", "Co-founder", "TBD", "N/A"],
   },
+  {
+    key: "category",
+    label: "Dedication",
+    width: "w-36",
+    options: ["Founder", "Founder-Curious", "Side Projects"],
+  },
+  { key: "hrs_wk", label: "Hrs / Wk", width: "w-24", options: ["<10", "10-40", ">40"] },
   { key: "notes", label: "Notes" },
 ];
 

@@ -14,6 +14,7 @@ export type Bootstrapper = {
   bootstrapper: string;
   category: string;
   product: string;
+  website: string;
   stage: string;
   hrs_wk: string;
   ask: string;

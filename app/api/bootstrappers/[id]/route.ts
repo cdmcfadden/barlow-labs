@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { getSql } from "@/lib/db";
 
-const EDITABLE = ["bootstrapper", "category", "product", "stage", "hrs_wk", "ask", "notes"] as const;
+const EDITABLE = ["bootstrapper", "category", "product", "website", "stage", "hrs_wk", "ask", "notes"] as const;
 type Editable = (typeof EDITABLE)[number];
 
 export async function PATCH(
