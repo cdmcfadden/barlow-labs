@@ -33,10 +33,11 @@ export default function Home() {
           </span>
         </h1>
         <p className="mt-6 max-w-3xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
-          Our stealth venture develops human-centric tech. We are part of the revolution of builders
-          obsessed with creating, harnessing, customizing, and controlling data to serve our own human
-          needs. When done with purpose, we believe this unlocks forgotten levels of accountability and
-          community.
+          We&rsquo;re a low-key group of builders (we prefer the term bootstrappers) obsessed with
+          harnessing new tech to create products that meet real human needs. We&rsquo;ve observed a
+          missing piece in our ecosystem: long-term encouragement, accountability, and insight-sharing
+          based on sustained relationships between trusted creators. And since we&rsquo;re builders we
+          thought we&rsquo;d start by building the missing community ourselves.
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <Link
@@ -45,12 +46,12 @@ export default function Home() {
           >
             Read our story →
           </Link>
-          <a
-            href="#principles"
+          <Link
+            href="/members"
             className="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
-            What we believe
-          </a>
+            Bootstrappers
+          </Link>
         </div>
       </section>
 

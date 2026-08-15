@@ -68,7 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </li>
               <li>
                 <Link href="/members" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
-                  Members
+                  Bootstrappers
                 </Link>
               </li>
             </ul>
