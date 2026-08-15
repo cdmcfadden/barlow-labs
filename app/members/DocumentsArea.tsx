@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 
 type Doc = {
   id: number;
@@ -52,20 +53,30 @@ export default function DocumentsArea() {
   const uploadFiles = async (files: FileList | File[]) => {
     setError(null);
     for (const file of Array.from(files)) {
-      if (file.size > 50 * 1024 * 1024) {
-        setError(`${file.name} is over the 50 MB limit.`);
+      if (file.size > 500 * 1024 * 1024) {
+        setError(`${file.name} is over the 500 MB limit.`);
         continue;
       }
       setUploading((u) => [...u, file.name]);
       try {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch("/api/documents", { method: "POST", body: form });
+        // Upload straight to Blob storage (bypasses API body-size limits),
+        // then register the metadata so it shows up for everyone.
+        const blob = await upload(`documents/${file.name}`, file, {
+          access: "private",
+          handleUploadUrl: "/api/documents/upload",
+        });
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: blob.url, filename: file.name, contentType: file.type }),
+        });
         if (!res.ok) throw new Error();
         const { doc } = await res.json();
         setDocs((d) => (d ? [doc, ...d] : [doc]));
-      } catch {
-        setError(`Failed to upload ${file.name}.`);
+      } catch (e) {
+        setError(
+          `Failed to upload ${file.name}${e instanceof Error && e.message ? ` (${e.message})` : ""}.`
+        );
       } finally {
         setUploading((u) => u.filter((n) => n !== file.name));
       }
@@ -102,7 +113,7 @@ export default function DocumentsArea() {
         <p className="text-sm text-muted-foreground">
           {dragging ? "Drop to upload" : "Drag files here, or click to browse"}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground/70">Up to 50 MB per file</p>
+        <p className="mt-1 text-xs text-muted-foreground/70">Up to 500 MB per file</p>
         <input
           ref={fileInput}
           type="file"

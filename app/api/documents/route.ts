@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { head } from "@vercel/blob";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { getSql } from "@/lib/db";
 
 export const maxDuration = 120;
-
-const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
 
 export async function GET(request: NextRequest) {
   const session = await openSession(request.cookies.get(SESSION_COOKIE)?.value);
@@ -19,28 +17,34 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ docs });
 }
 
+// Registers metadata for a blob the client already uploaded directly
+// (see /api/documents/upload). The blob URL is verified against head()
+// so members can only register blobs that actually exist in our store.
 export async function POST(request: NextRequest) {
   const session = await openSession(request.cookies.get(SESSION_COOKIE)?.value);
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const form = await request.formData();
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "no_file" }, { status: 400 });
-  }
-  if (file.size > MAX_SIZE) {
-    return NextResponse.json({ error: "too_large" }, { status: 413 });
+  const body = (await request.json()) as {
+    url?: string;
+    filename?: string;
+    contentType?: string;
+  };
+  if (typeof body.url !== "string" || typeof body.filename !== "string") {
+    return NextResponse.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const blob = await put(`documents/${file.name}`, file, {
-    access: "private",
-    addRandomSuffix: true,
-  });
+  let blob;
+  try {
+    blob = await head(body.url);
+  } catch {
+    return NextResponse.json({ error: "blob_not_found" }, { status: 400 });
+  }
 
   const sql = getSql();
   const rows = (await sql`
     INSERT INTO documents (pathname, blob_url, filename, size, content_type, uploaded_by)
-    VALUES (${blob.pathname}, ${blob.url}, ${file.name}, ${file.size}, ${file.type}, ${session.name})
+    VALUES (${blob.pathname}, ${blob.url}, ${body.filename.slice(0, 300)},
+            ${blob.size}, ${body.contentType ?? ""}, ${session.name})
     RETURNING id, filename, size, content_type, uploaded_by, uploaded_at
   `) as Record<string, unknown>[];
   return NextResponse.json({ doc: rows[0] });
