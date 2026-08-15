@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import BootstrapperTable from "./BootstrapperTable";
+import DocumentsArea from "./DocumentsArea";
 
 export const metadata = { title: "Members | Barlow Labs" };
 
@@ -19,6 +20,7 @@ export default async function MembersPage() {
         This area is only visible to members of the Barlow Labs Slack workspace.
       </p>
       <BootstrapperTable />
+      <DocumentsArea />
       <div className="mt-8">
         <Link
           href="/api/auth/logout"
