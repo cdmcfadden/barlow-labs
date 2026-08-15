@@ -9,11 +9,12 @@ const COLUMNS: {
   width?: string;
   options?: string[];
   readonly?: boolean;
+  link?: boolean;
 }[] = [
   { key: "karma", label: "Karma", width: "w-20", readonly: true },
   { key: "bootstrapper", label: "Name", width: "w-44" },
   { key: "product", label: "Product", width: "w-40" },
-  { key: "website", label: "Website", width: "w-44" },
+  { key: "website", label: "Website", width: "w-44", link: true },
   {
     key: "stage",
     label: "Stage",
@@ -172,22 +173,53 @@ export default function BootstrapperTable() {
                       </select>
                       );
                     })() : (
-                      <input
-                        className="w-full rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30"
-                        defaultValue={String(row[c.key])}
-                        onBlur={(e) => {
-                          const value = e.target.value;
-                          if (value !== String(row[c.key])) {
-                            setRows((r) =>
-                              r ? r.map((x) => (x.id === row.id ? { ...x, [c.key]: value } : x)) : r
-                            );
-                            saveCell(row.id, c.key, value);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                        }}
-                      />
+                      <span className="flex items-center gap-1">
+                        <input
+                          className={`w-full rounded bg-transparent px-2 py-1.5 outline-none focus:bg-background focus:ring-1 focus:ring-foreground/30 ${
+                            c.link && row[c.key] ? "text-accent underline underline-offset-2" : ""
+                          }`}
+                          defaultValue={String(row[c.key])}
+                          onBlur={(e) => {
+                            const value = e.target.value;
+                            if (value !== String(row[c.key])) {
+                              setRows((r) =>
+                                r ? r.map((x) => (x.id === row.id ? { ...x, [c.key]: value } : x)) : r
+                              );
+                              saveCell(row.id, c.key, value);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                          }}
+                        />
+                        {c.link && row[c.key] && (
+                          <a
+                            href={
+                              String(row[c.key]).startsWith("http")
+                                ? String(row[c.key])
+                                : `https://${row[c.key]}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 pr-1 text-muted-foreground hover:text-accent transition-colors"
+                            title={`Open ${row[c.key]}`}
+                            aria-label={`Open ${row[c.key]}`}
+                          >
+                            <svg
+                              viewBox="0 0 14 14"
+                              className="h-3.5 w-3.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M5.5 3H3.2A1.2 1.2 0 0 0 2 4.2v6.6A1.2 1.2 0 0 0 3.2 12h6.6A1.2 1.2 0 0 0 11 10.8V8.5" />
+                              <path d="M8.5 2H12v3.5M12 2 6.5 7.5" />
+                            </svg>
+                          </a>
+                        )}
+                      </span>
                     )}
                   </td>
                 ))}

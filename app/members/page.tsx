@@ -19,9 +19,9 @@ export default async function MembersPage() {
       <p className="mt-4 max-w-2xl text-muted-foreground">
         This area is only visible to members of the Barlow Labs Slack workspace.
       </p>
+      <DocumentsArea />
       <BootstrapperTable />
       {session && <LanternflySection me={{ sub: session.sub, name: session.name }} />}
-      <DocumentsArea />
       <div className="mt-8">
         <form action="/api/auth/logout" method="post">
           <button
