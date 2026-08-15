@@ -45,7 +45,7 @@ export function WaitlistForm() {
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        We'll only use your email to share House360 updates. No spam, ever.
+        We'll only use your email to share yoova updates. No spam, ever.
       </p>
     </form>
   );

@@ -7,6 +7,11 @@ const nextConfig = {
         destination: 'https://raiserbar.lovable.app',
         permanent: false,
       },
+      {
+        source: '/house360',
+        destination: '/yoova',
+        permanent: true,
+      },
     ];
   },
 };

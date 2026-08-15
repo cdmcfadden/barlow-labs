@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { WaitlistForm } from "./WaitlistForm";
 
 export const metadata: Metadata = {
-  title: "House360 | Barlow Labs",
+  title: "yoova | Barlow Labs",
   description:
-    "One place for all your home documents, scheduled maintenance, and recommended vendors. Join the House360 waitlist.",
+    "One place for all your home documents, scheduled maintenance, and recommended vendors. Join the yoova waitlist.",
   openGraph: {
-    title: "House360",
+    title: "yoova",
     description:
       "One place for all your home documents, scheduled maintenance, and recommended vendors.",
     type: "website",
@@ -28,7 +28,7 @@ const features = [
   },
 ];
 
-export default function House360Page() {
+export default function YoovaPage() {
   return (
     <div className="mx-auto max-w-4xl px-6">
       <section className="relative pt-20 pb-12 sm:pt-28">
@@ -41,7 +41,7 @@ export default function House360Page() {
         </p>
         <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.05]">
           <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            House360
+            yoova
           </span>
         </h1>
         <p className="mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
@@ -70,7 +70,7 @@ export default function House360Page() {
             Join the waitlist
           </h2>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            We're rolling out House360 to a small group of early users. Drop your email and we'll
+            We're rolling out yoova to a small group of early users. Drop your email and we'll
             send you a confirmation, then reach out when it's your turn.
           </p>
           <div className="mt-6">

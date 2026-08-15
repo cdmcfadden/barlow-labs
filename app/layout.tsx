@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
+import { Comfortaa } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
 import "./globals.css";
+
+const comfortaa = Comfortaa({
+  subsets: ["latin"],
+  variable: "--font-comfortaa",
+});
 
 export const metadata: Metadata = {
   title: "Barlow Labs | Innovation, Data, Technology",
@@ -25,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={comfortaa.variable}>
       <body className="min-h-screen antialiased">
         <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur">
           <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
@@ -56,8 +62,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               </li>
               <li>
-                <Link href="/house360" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
-                  House360
+                <Link href="/yoova" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
+                  yoova
                 </Link>
               </li>
               <li>

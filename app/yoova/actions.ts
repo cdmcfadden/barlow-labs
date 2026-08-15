@@ -27,7 +27,7 @@ export async function joinWaitlist(
     };
   }
 
-  const from = process.env.HOUSE360_FROM_EMAIL ?? "House360 <house360@barlow-labs.com>";
+  const from = process.env.HOUSE360_FROM_EMAIL ?? "yoova <yoova@barlow-labs.com>";
   const notify = process.env.HOUSE360_NOTIFY_EMAIL ?? "parth@barlow-labs.com";
 
   const resend = new Resend(apiKey);
@@ -37,25 +37,25 @@ export async function joinWaitlist(
       resend.emails.send({
         from,
         to: email,
-        subject: "You're on the House360 waitlist",
+        subject: "You're on the yoova waitlist",
         text:
-          "Thanks for joining the House360 waitlist!\n\n" +
-          "House360 is one place for all your home documents, scheduled maintenance, " +
+          "Thanks for joining the yoova waitlist!\n\n" +
+          "yoova is one place for all your home documents, scheduled maintenance, " +
           "and recommended vendors. We'll be in touch soon with early access details.\n\n" +
-          "— The House360 team at Barlow Labs",
+          "— The yoova team at Barlow Labs",
         html:
-          `<p>Thanks for joining the <strong>House360</strong> waitlist!</p>` +
-          `<p>House360 is one place for all your home documents, scheduled maintenance, ` +
+          `<p>Thanks for joining the <strong>yoova</strong> waitlist!</p>` +
+          `<p>yoova is one place for all your home documents, scheduled maintenance, ` +
           `and recommended vendors. We'll be in touch soon with early access details.</p>` +
-          `<p>— The House360 team at Barlow Labs</p>`,
+          `<p>— The yoova team at Barlow Labs</p>`,
       }),
       resend.emails.send({
         from,
         to: notify,
         replyTo: email,
-        subject: `New House360 waitlist signup: ${email}`,
-        text: `A new member just joined the House360 waitlist:\n\n${email}`,
-        html: `<p>A new member just joined the House360 waitlist:</p><p><strong>${email}</strong></p>`,
+        subject: `New yoova waitlist signup: ${email}`,
+        text: `A new member just joined the yoova waitlist:\n\n${email}`,
+        html: `<p>A new member just joined the yoova waitlist:</p><p><strong>${email}</strong></p>`,
       }),
     ]);
 
