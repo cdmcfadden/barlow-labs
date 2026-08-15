@@ -28,8 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen antialiased">
         <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur">
-          <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-            <Link href="/" className="flex items-center gap-2.5 group">
+          <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+            <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
               <span className="inline-flex items-center justify-center rounded-md bg-white px-1.5 py-1 shadow-sm">
                 <Image
                   src="/logo.png"
@@ -40,28 +40,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   className="h-6 w-auto"
                 />
               </span>
-              <span className="text-lg font-semibold tracking-tight group-hover:text-accent transition-colors">
+              <span className="hidden text-lg font-semibold tracking-tight group-hover:text-accent transition-colors md:inline">
                 Barlow Labs
               </span>
             </Link>
-            <ul className="flex items-center gap-6 text-sm">
+            <ul className="flex items-center gap-4 text-sm sm:gap-6">
               <li>
-                <Link href="/" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
                   Home
                 </Link>
               </li>
               <li>
-                <Link href="/story" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/story" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
                   Our Story
                 </Link>
               </li>
               <li>
-                <Link href="/house360" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/house360" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
                   House360
                 </Link>
               </li>
               <li>
-                <Link href="/members" className="text-muted-foreground hover:text-foreground transition-colors">
+                <Link href="/members" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
                   Members
                 </Link>
               </li>
