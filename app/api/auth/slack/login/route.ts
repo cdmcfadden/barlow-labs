@@ -19,6 +19,11 @@ export async function GET(request: NextRequest) {
   authorize.searchParams.set("scope", "openid email profile");
   authorize.searchParams.set("redirect_uri", new URL("/api/auth/slack/callback", request.nextUrl.origin).toString());
   authorize.searchParams.set("state", state);
+  // Preselects the workspace so members skip Slack's "enter your
+  // workspace name" step, which is especially painful on mobile.
+  if (process.env.SLACK_TEAM_ID) {
+    authorize.searchParams.set("team", process.env.SLACK_TEAM_ID);
+  }
 
   const response = NextResponse.redirect(authorize);
   const secure = request.nextUrl.protocol === "https:";
