@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, sealSession } from "@/lib/session";
 
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 // Because the Barlow Labs Slack app is not distributed, Slack only completes
 // this flow for members of the Barlow Labs workspace — that installation
