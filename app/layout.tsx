@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Comfortaa } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
+import ProductsMenu from "./ProductsMenu";
+import LockIcon from "./LockIcon";
 import "./globals.css";
 
 const comfortaa = Comfortaa({
@@ -61,13 +63,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Our Story
                 </Link>
               </li>
+              <ProductsMenu />
               <li>
-                <Link href="/yoova" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
-                  yoova
-                </Link>
-              </li>
-              <li>
-                <Link href="/members" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
+                <Link
+                  href="/members"
+                  className="flex items-center gap-1.5 whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors"
+                  title="Members only — sign in with Slack"
+                >
+                  <LockIcon />
                   Bootstrappers
                 </Link>
               </li>

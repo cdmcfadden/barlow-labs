@@ -1,4 +1,5 @@
 import Link from "next/link";
+import LockIcon from "./LockIcon";
 
 const principles = [
   {
@@ -48,8 +49,10 @@ export default function Home() {
           </Link>
           <Link
             href="/members"
-            className="inline-flex items-center rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            title="Members only — sign in with Slack"
           >
+            <LockIcon className="h-3.5 w-3.5" />
             Bootstrappers
           </Link>
         </div>
