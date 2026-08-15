@@ -59,12 +59,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </Link>
               </li>
               <li>
-                <Link href="/story" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
-                  Our Story
-                </Link>
-              </li>
-              <ProductsMenu />
-              <li>
                 <Link
                   href="/members"
                   className="flex items-center gap-1.5 whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors"
@@ -74,6 +68,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   Bootstrappers
                 </Link>
               </li>
+              <li>
+                <Link href="/story" className="whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors">
+                  Our Story
+                </Link>
+              </li>
+              <ProductsMenu />
             </ul>
           </nav>
         </header>
