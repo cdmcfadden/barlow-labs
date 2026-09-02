@@ -7,6 +7,7 @@ const PRODUCTS = [
   { href: "/yoova", label: "yoova" },
   { href: "/mothersd", label: "mothersd.ai" },
   { href: "/spkeasy", label: "Speak Easy" },
+  { href: "/deeptunnel", label: "DeepTunnel" },
 ];
 
 export default function ProductsMenu() {
