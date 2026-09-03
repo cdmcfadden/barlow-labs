@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import BootstrapperTable from "./BootstrapperTable";
@@ -18,6 +19,12 @@ export default async function MembersPage() {
       </h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">
         This area is only visible to members of the Barlow Labs Slack workspace.
+      </p>
+      <p className="mt-4 max-w-2xl text-muted-foreground">
+        <Link href="/members/archive" className="underline underline-offset-4 hover:text-foreground">
+          Slack archive
+        </Link>{" "}
+        — everything we said in Slack, kept past the 90-day cutoff.
       </p>
       <DocumentsArea />
       <BootstrapperTable />
