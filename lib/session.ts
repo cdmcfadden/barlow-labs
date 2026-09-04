@@ -8,6 +8,12 @@ export type Session = {
   name: string;
   email: string;
   exp: number; // unix seconds
+  /**
+   * Slack team ID the member signed in from. Absent on sessions issued before
+   * the site archived more than one workspace — those can only have come from
+   * Barlow Labs, so callers treat a missing team as Barlow.
+   */
+  team?: string;
 };
 
 function secretKey(): Promise<CryptoKey> {

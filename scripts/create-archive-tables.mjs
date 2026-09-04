@@ -84,4 +84,17 @@ await sql`CREATE TABLE IF NOT EXISTS archive_summaries (
   PRIMARY KEY (channel_id, month)
 )`;
 
+// Multi-workspace: rows written before the F3 workspace existed are Barlow's.
+const BARLOW_TEAM = process.env.SLACK_TEAM_ID || "T08UF8ML4P9";
+await sql`ALTER TABLE archive_channels ADD COLUMN IF NOT EXISTS team_id TEXT NOT NULL DEFAULT ''`;
+await sql`ALTER TABLE archive_users ADD COLUMN IF NOT EXISTS team_id TEXT NOT NULL DEFAULT ''`;
+await sql`UPDATE archive_channels SET team_id = ${BARLOW_TEAM} WHERE team_id = ''`;
+await sql`UPDATE archive_users SET team_id = ${BARLOW_TEAM} WHERE team_id = ''`;
+await sql`CREATE INDEX IF NOT EXISTS archive_channels_team_idx ON archive_channels (team_id)`;
+await sql`CREATE INDEX IF NOT EXISTS archive_users_team_idx ON archive_users (team_id)`;
+
+// Channel names repeat across workspaces, so the archive's URLs key on
+// (team, name) rather than name alone.
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS archive_channels_team_name_idx ON archive_channels (team_id, name)`;
+
 console.log("archive tables ready");

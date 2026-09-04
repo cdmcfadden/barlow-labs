@@ -40,7 +40,13 @@ async function authorize(request: NextRequest): Promise<boolean> {
   return Boolean(await openSession(request.cookies.get(SESSION_COOKIE)?.value));
 }
 
-type Pending = { channel_id: string; name: string; month: string; message_count: number };
+type Pending = {
+  channel_id: string;
+  team_id: string;
+  name: string;
+  month: string;
+  message_count: number;
+};
 
 /** Slack stores mentions as <@U123>; the model should see people, not ids. */
 function resolveMentions(text: string, names: Map<string, string>): string {
@@ -62,21 +68,25 @@ export async function GET(request: NextRequest) {
   // A month needs (re)summarizing when it has no summary, or when messages
   // have landed since the summary was written.
   const pending = (await sql`
-    SELECT m.channel_id, c.name, to_char(m.posted_at, 'YYYY-MM') AS month,
+    SELECT m.channel_id, c.team_id, c.name, to_char(m.posted_at, 'YYYY-MM') AS month,
            COUNT(*)::int AS message_count
     FROM archive_messages m
     JOIN archive_channels c ON c.id = m.channel_id
     LEFT JOIN archive_summaries s
       ON s.channel_id = m.channel_id AND s.month = to_char(m.posted_at, 'YYYY-MM')
     WHERE (${only}::text IS NULL OR c.name = ${only} OR c.id = ${only})
-    GROUP BY m.channel_id, c.name, 3, s.message_count
+    GROUP BY m.channel_id, c.team_id, c.name, 4, s.message_count
     HAVING MAX(s.message_count) IS NULL OR MAX(s.message_count) <> COUNT(*)
-    ORDER BY 3 DESC
+    ORDER BY 4 DESC
     LIMIT ${limit}
   `) as unknown as Pending[];
 
   const client = new Anthropic();
-  const names = await userNameMap();
+  // One name map per workspace involved in this batch.
+  const nameMaps = new Map<string, Map<string, string>>();
+  for (const teamId of new Set(pending.map((item) => item.team_id))) {
+    nameMaps.set(teamId, await userNameMap(teamId));
+  }
 
   async function summarize(item: Pending): Promise<string | null> {
     const messages = (await sql`
@@ -97,6 +107,7 @@ export async function GET(request: NextRequest) {
     const transcript = messages
       .map((row) => {
         const threaded = row.thread_ts && row.thread_ts !== row.ts ? "  ↳ " : "";
+        const names = nameMaps.get(item.team_id) ?? new Map<string, string>();
         return `${threaded}[${row.at}] ${row.user_name}: ${resolveMentions(row.text, names)}`;
       })
       .join("\n");

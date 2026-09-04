@@ -1,10 +1,10 @@
 import SearchPage from "@/components/archive/SearchPage";
 import { workspaceBySlug } from "@/lib/workspaces";
 
-export const metadata = { title: "Search archive | Barlow Labs" };
+export const metadata = { title: "Search archive | F3 Cascades" };
 export const dynamic = "force-dynamic";
 
-const workspace = workspaceBySlug("barlow")!;
+const workspace = workspaceBySlug("f3")!;
 
 export default async function Page({
   searchParams,

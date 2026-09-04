@@ -38,8 +38,8 @@ export type ArchiveFile = {
   slack_permalink: string;
 };
 
-/** Channels that have at least one archived message, chattiest first. */
-export async function listArchiveChannels(): Promise<ArchiveChannel[]> {
+/** Channels in one workspace that hold archived messages, chattiest first. */
+export async function listArchiveChannels(teamId: string): Promise<ArchiveChannel[]> {
   const sql = getSql();
   return (await sql`
     SELECT c.id, c.name, c.purpose, c.topic, c.is_archived, c.last_synced_at,
@@ -48,16 +48,17 @@ export async function listArchiveChannels(): Promise<ArchiveChannel[]> {
            MAX(m.posted_at) AS last_message_at
     FROM archive_channels c
     LEFT JOIN archive_messages m ON m.channel_id = c.id
+    WHERE c.team_id = ${teamId}
     GROUP BY c.id
     ORDER BY COUNT(m.ts) DESC, c.name ASC
   `) as unknown as ArchiveChannel[];
 }
 
-export async function getChannelByName(name: string) {
+export async function getChannelByName(teamId: string, name: string) {
   const sql = getSql();
   const rows = (await sql`
     SELECT id, name, purpose, topic, is_archived, last_synced_at
-    FROM archive_channels WHERE name = ${name} LIMIT 1
+    FROM archive_channels WHERE team_id = ${teamId} AND name = ${name} LIMIT 1
   `) as Record<string, string>[];
   return rows[0] ?? null;
 }
@@ -117,7 +118,11 @@ export async function listMonthFiles(channelId: string, month: string) {
 
 export type SearchHit = ArchiveMessage & { channel_name: string; month: string };
 
-export async function searchMessages(query: string, limit = 100): Promise<SearchHit[]> {
+export async function searchMessages(
+  teamId: string,
+  query: string,
+  limit = 100
+): Promise<SearchHit[]> {
   const sql = getSql();
   return (await sql`
     SELECT m.channel_id, m.ts, m.thread_ts, m.user_id, m.user_name, m.subtype,
@@ -126,23 +131,29 @@ export async function searchMessages(query: string, limit = 100): Promise<Search
            to_char(m.posted_at, 'YYYY-MM') AS month
     FROM archive_messages m
     JOIN archive_channels c ON c.id = m.channel_id
-    WHERE m.search @@ websearch_to_tsquery('english', ${query})
+    WHERE c.team_id = ${teamId}
+      AND m.search @@ websearch_to_tsquery('english', ${query})
     ORDER BY ts_rank(m.search, websearch_to_tsquery('english', ${query})) DESC,
              m.posted_at DESC
     LIMIT ${limit}
   `) as unknown as SearchHit[];
 }
 
-export async function archiveStats() {
+export async function archiveStats(teamId: string) {
   const sql = getSql();
   const rows = (await sql`
     SELECT COUNT(*)::int AS messages,
-           MIN(posted_at) AS oldest,
-           MAX(posted_at) AS newest
-    FROM archive_messages
+           MIN(m.posted_at) AS oldest,
+           MAX(m.posted_at) AS newest
+    FROM archive_messages m
+    JOIN archive_channels c ON c.id = m.channel_id
+    WHERE c.team_id = ${teamId}
   `) as Record<string, string>[];
   const files = (await sql`
-    SELECT COUNT(*)::int AS files FROM archive_files WHERE mirrored
+    SELECT COUNT(*)::int AS files
+    FROM archive_files f
+    JOIN archive_channels c ON c.id = f.channel_id
+    WHERE c.team_id = ${teamId} AND f.mirrored
   `) as Record<string, string>[];
   return { ...rows[0], files: files[0]?.files ?? 0 } as unknown as {
     messages: number;
@@ -232,12 +243,37 @@ export function slackTsToDate(ts: string): Date {
 }
 
 /** Slack user id → display name, for rendering @mentions in archived text. */
-export async function userNameMap(): Promise<Map<string, string>> {
+export async function userNameMap(teamId?: string): Promise<Map<string, string>> {
   const sql = getSql();
-  const rows = (await sql`SELECT id, name, real_name FROM archive_users`) as {
+  const rows = (await sql`
+    SELECT id, name, real_name FROM archive_users
+    WHERE ${teamId ?? null}::text IS NULL OR team_id = ${teamId ?? null}
+  `) as {
     id: string;
     name: string;
     real_name: string;
   }[];
   return new Map(rows.map((row) => [row.id, row.real_name || row.name || row.id]));
+}
+
+/** The workspace a mirrored file belongs to, for the download route's check. */
+export async function fileTeam(fileId: string): Promise<string | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT c.team_id FROM archive_files f
+    JOIN archive_channels c ON c.id = f.channel_id
+    WHERE f.id = ${fileId}
+  `) as { team_id: string }[];
+  return rows[0]?.team_id ?? null;
+}
+
+/** Slack-escaped text (purposes, topics) rendered as plain readable text. */
+export function plainText(input: string): string {
+  return input
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/<([^<>|]+)\|([^<>]+)>/g, "$2")
+    .replace(/<([^<>]+)>/g, "$1")
+    .trim();
 }

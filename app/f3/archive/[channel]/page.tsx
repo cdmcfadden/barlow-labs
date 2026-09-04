@@ -3,7 +3,7 @@ import { workspaceBySlug } from "@/lib/workspaces";
 
 export const dynamic = "force-dynamic";
 
-const workspace = workspaceBySlug("barlow")!;
+const workspace = workspaceBySlug("f3")!;
 
 export async function generateMetadata({
   params,
@@ -11,7 +11,7 @@ export async function generateMetadata({
   params: Promise<{ channel: string }>;
 }) {
   const { channel } = await params;
-  return { title: `#${channel} archive | Barlow Labs` };
+  return { title: `#${channel} archive | F3 Cascades` };
 }
 
 export default async function Page({ params }: { params: Promise<{ channel: string }> }) {

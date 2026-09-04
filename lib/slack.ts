@@ -17,11 +17,9 @@ export class SlackError extends Error {
 /** Thrown when the caller's time budget ran out; the sync resumes next run. */
 export class BudgetExceeded extends Error {}
 
-export function slackToken(): string {
-  const token = process.env.SLACK_BOT_TOKEN;
-  if (!token) throw new Error("SLACK_BOT_TOKEN is not set");
-  return token;
-}
+// Every call takes an explicit token: this client serves more than one
+// workspace, and picking the token up from the environment would make it
+// possible to read one workspace's history with another's credentials.
 
 export type SlackFile = {
   id: string;
@@ -64,6 +62,8 @@ export type SlackChannel = {
 
 type Options = { deadline?: number };
 
+type Auth = { token: string } & Options;
+
 function remaining(deadline: number | undefined): number {
   return deadline === undefined ? Number.POSITIVE_INFINITY : deadline - Date.now();
 }
@@ -72,7 +72,7 @@ function remaining(deadline: number | undefined): number {
 export async function slackGet<T = Record<string, unknown>>(
   method: string,
   params: Record<string, string | number | undefined>,
-  options: Options = {}
+  options: Auth
 ): Promise<T & { ok: boolean }> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -83,7 +83,7 @@ export async function slackGet<T = Record<string, unknown>>(
     if (remaining(options.deadline) <= 0) throw new BudgetExceeded(method);
 
     const res = await fetch(`${SLACK_API}${method}?${query}`, {
-      headers: { Authorization: `Bearer ${slackToken()}` },
+      headers: { Authorization: `Bearer ${options.token}` },
       cache: "no-store",
     });
 
@@ -110,13 +110,13 @@ export async function slackGet<T = Record<string, unknown>>(
 export async function slackPost<T = Record<string, unknown>>(
   method: string,
   body: Record<string, unknown>,
-  options: Options = {}
+  options: Auth
 ): Promise<T & { ok: boolean }> {
   if (remaining(options.deadline) <= 0) throw new BudgetExceeded(method);
   const res = await fetch(`${SLACK_API}${method}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${slackToken()}`,
+      Authorization: `Bearer ${options.token}`,
       "Content-Type": "application/json; charset=utf-8",
     },
     body: JSON.stringify(body),
@@ -127,7 +127,7 @@ export async function slackPost<T = Record<string, unknown>>(
 }
 
 /** Every public channel in the workspace, archived ones included. */
-export async function listPublicChannels(options: Options = {}): Promise<SlackChannel[]> {
+export async function listPublicChannels(options: Auth): Promise<SlackChannel[]> {
   const channels: SlackChannel[] = [];
   let cursor: string | undefined;
   do {
@@ -145,7 +145,7 @@ export async function listPublicChannels(options: Options = {}): Promise<SlackCh
   return channels;
 }
 
-export async function fetchUsers(options: Options = {}) {
+export async function fetchUsers(options: Auth) {
   const users: {
     id: string;
     name?: string;
@@ -167,10 +167,10 @@ export async function fetchUsers(options: Options = {}) {
 }
 
 /** Downloads a Slack-hosted file. Returns null if it is already gone. */
-export async function downloadFile(file: SlackFile): Promise<Blob | null> {
+export async function downloadFile(file: SlackFile, token: string): Promise<Blob | null> {
   const url = file.url_private_download ?? file.url_private;
   if (!url) return null;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${slackToken()}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) return null;
   const blob = await res.blob();
   // Slack serves an HTML login page instead of a 403 when access is denied.

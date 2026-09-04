@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { get } from "@vercel/blob";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { getSql } from "@/lib/db";
+import { WORKSPACES } from "@/lib/workspaces";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,25 @@ export async function GET(
   const { id } = await params;
   const sql = getSql();
   const rows = (await sql`
-    SELECT blob_pathname, name, mimetype, mirrored FROM archive_files WHERE id = ${id}
-  `) as { blob_pathname: string; name: string; mimetype: string; mirrored: boolean }[];
+    SELECT f.blob_pathname, f.name, f.mimetype, f.mirrored, c.team_id
+    FROM archive_files f
+    JOIN archive_channels c ON c.id = f.channel_id
+    WHERE f.id = ${id}
+  `) as {
+    blob_pathname: string;
+    name: string;
+    mimetype: string;
+    mirrored: boolean;
+    team_id: string;
+  }[];
 
   const file = rows[0];
   if (!file?.mirrored || !file.blob_pathname) {
     return NextResponse.json({ error: "not_mirrored" }, { status: 404 });
+  }
+  // An attachment belongs to the workspace whose channel it was posted in.
+  if ((session.team ?? WORKSPACES[0].teamId) !== file.team_id) {
+    return NextResponse.json({ error: "wrong_workspace" }, { status: 403 });
   }
 
   const blob = await get(file.blob_pathname, { access: "private" });

@@ -3,6 +3,7 @@ import { Comfortaa } from "next/font/google";
 import Link from "next/link";
 import Image from "next/image";
 import ProductsMenu from "./ProductsMenu";
+import { F3Header, SiteChrome } from "@/components/F3Chrome";
 import LockIcon from "./LockIcon";
 import "./globals.css";
 
@@ -35,6 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={comfortaa.variable}>
       <body className="min-h-screen antialiased">
+        <F3Header />
+        <SiteChrome>
         <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/80 backdrop-blur">
           <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
             <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
@@ -77,7 +80,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </ul>
           </nav>
         </header>
+        </SiteChrome>
         <main>{children}</main>
+        <SiteChrome>
         <footer className="border-t border-border/60 mt-24">
           <div className="mx-auto max-w-6xl px-6 py-10 text-sm text-muted-foreground flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <p>© {new Date().getFullYear()} Barlow Labs. Seattle, WA.</p>
@@ -91,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
+        </SiteChrome>
       </body>
     </html>
   );

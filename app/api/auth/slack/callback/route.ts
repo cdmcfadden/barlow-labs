@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, sealSession } from "@/lib/session";
+import { WORKSPACES, workspaceBySlug } from "@/lib/workspaces";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-// Because the Barlow Labs Slack app is not distributed, Slack only completes
-// this flow for members of the Barlow Labs workspace — that installation
-// boundary is the access control. The optional SLACK_TEAM_ID check below is a
-// second line of defense if the app is ever accidentally distributed.
+// Each workspace signs in through its own Slack app, installed only in that
+// workspace — that installation boundary is the access control. The team_id
+// check below is the second line of defense, and it also stamps the session
+// so middleware can keep one workspace's members out of the other's archive.
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const code = params.get("code");
   const state = params.get("state");
   const expectedState = request.cookies.get("bl_oauth_state")?.value;
   const next = request.cookies.get("bl_oauth_next")?.value ?? "/members";
+  const workspace =
+    workspaceBySlug(request.cookies.get("bl_oauth_ws")?.value ?? "") ?? WORKSPACES[0];
 
   const fail = (reason: string) =>
     NextResponse.redirect(new URL(`/access-denied?reason=${encodeURIComponent(reason)}`, request.nextUrl.origin));
@@ -25,8 +28,8 @@ export async function GET(request: NextRequest) {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.SLACK_CLIENT_ID ?? "",
-      client_secret: process.env.SLACK_CLIENT_SECRET ?? "",
+      client_id: process.env[workspace.clientIdEnv] ?? "",
+      client_secret: process.env[workspace.clientSecretEnv] ?? "",
       code,
       grant_type: "authorization_code",
       redirect_uri: new URL("/api/auth/slack/callback", request.nextUrl.origin).toString(),
@@ -48,8 +51,7 @@ export async function GET(request: NextRequest) {
   }
 
   const teamId = claims["https://slack.com/team_id"] as string | undefined;
-  const expectedTeam = process.env.SLACK_TEAM_ID;
-  if (expectedTeam && teamId !== expectedTeam) {
+  if (teamId !== workspace.teamId) {
     return fail("wrong_workspace");
   }
 
@@ -58,6 +60,7 @@ export async function GET(request: NextRequest) {
     name: (claims.name as string) ?? "",
     email: (claims.email as string) ?? "",
     exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
+    team: teamId,
   });
 
   const response = NextResponse.redirect(new URL(next, request.nextUrl.origin));
@@ -70,5 +73,6 @@ export async function GET(request: NextRequest) {
   });
   response.cookies.delete("bl_oauth_state");
   response.cookies.delete("bl_oauth_next");
+  response.cookies.delete("bl_oauth_ws");
   return response;
 }
