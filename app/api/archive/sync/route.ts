@@ -204,7 +204,8 @@ async function mirrorFile(
   channelId: string,
   messageTs: string,
   file: SlackFile,
-  token: string
+  token: string,
+  store: boolean
 ) {
   const sql = getSql();
   const existing = (await sql`
@@ -216,7 +217,7 @@ async function mirrorFile(
   let blobPathname = "";
   let mirrored = false;
   const oversized = (file.size ?? 0) > sizeLimit(file.mimetype ?? "");
-  const body = oversized ? null : await downloadFile(file, token);
+  const body = store && !oversized ? await downloadFile(file, token) : null;
   if (body) {
     const name = file.name ?? file.title ?? file.id;
     try {
@@ -261,7 +262,17 @@ async function ingest(channelId: string, messages: SlackMessage[], run: Run) {
         continue;
       }
       try {
-        if (await mirrorFile(channelId, message.ts, file, run.token)) run.counters.files += 1;
+        if (
+          await mirrorFile(
+            channelId,
+            message.ts,
+            file,
+            run.token,
+            run.workspace.mirrorFiles
+          )
+        ) {
+          run.counters.files += 1;
+        }
       } catch (error) {
         if (!(error instanceof StorageFull)) throw error;
         run.storageFull = true;
@@ -298,7 +309,15 @@ async function mirrorPendingFiles(run: Run, limit = 50) {
     const file = (row.raw.files ?? []).find((candidate) => candidate.id === row.id);
     if (!file) continue;
     try {
-      if (await mirrorFile(row.channel_id, row.message_ts, file, run.token)) {
+      if (
+        await mirrorFile(
+          row.channel_id,
+          row.message_ts,
+          file,
+          run.token,
+          run.workspace.mirrorFiles
+        )
+      ) {
         run.counters.files += 1;
       }
     } catch (error) {
@@ -450,7 +469,7 @@ async function syncWorkspace(
 
   // Anything left unmirrored from earlier runs gets another chance with
   // whatever budget survived the channel walk.
-  if (!budgetHit && Date.now() < deadline) {
+  if (!budgetHit && Date.now() < deadline && workspace.mirrorFiles) {
     try {
       await mirrorPendingFiles(run);
     } catch (error) {

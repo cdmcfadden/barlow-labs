@@ -18,6 +18,12 @@ export type Workspace = {
   clientSecretEnv: string;
   /** Where this workspace's archive lives. */
   basePath: string;
+  /**
+   * Whether attachments are copied into Blob storage. Off for workspaces whose
+   * media would exhaust the store — their files stay recorded (name, size,
+   * poster, Slack link) but the bytes are not kept.
+   */
+  mirrorFiles: boolean;
   blurb: string;
 };
 
@@ -30,6 +36,7 @@ export const WORKSPACES: Workspace[] = [
     clientIdEnv: "SLACK_CLIENT_ID",
     clientSecretEnv: "SLACK_CLIENT_SECRET",
     basePath: "/members/archive",
+    mirrorFiles: true,
     blurb:
       "Our Slack plan drops message history after 90 days. Everything here was mirrored before that happened, so it stays readable and searchable for good.",
   },
@@ -41,6 +48,8 @@ export const WORKSPACES: Workspace[] = [
     clientIdEnv: "F3_SLACK_CLIENT_ID",
     clientSecretEnv: "F3_SLACK_CLIENT_SECRET",
     basePath: "/f3/archive",
+    // F3's workout photos and videos alone exceeded the whole Blob quota.
+    mirrorFiles: false,
     blurb:
       "Slack hides F3 Cascades history after 90 days. Backblasts, AO announcements and event threads are mirrored here before that happens, so the PAX keep the record.",
   },

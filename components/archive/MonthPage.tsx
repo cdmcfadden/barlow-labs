@@ -53,9 +53,22 @@ function Attachments({ files }: { files: ArchiveFile[] }) {
               <span>{file.name || "attachment"}</span>
               <span className="text-muted-foreground">{formatSize(file.size)}</span>
             </a>
+          ) : file.slack_permalink ? (
+            // Not stored — the name and size are archived, and Slack still
+            // serves the file until retention catches up with it.
+            <a
+              href={file.slack_permalink}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+              title="Not stored in the archive — opens in Slack while it lasts"
+            >
+              <span>{file.name || "attachment"}</span>
+              <span>{formatSize(file.size)} · Slack</span>
+            </a>
           ) : (
             <span className="inline-flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1 text-xs text-muted-foreground">
-              {file.name || "attachment"} (not mirrored)
+              {file.name || "attachment"} (not stored)
             </span>
           )}
         </li>
