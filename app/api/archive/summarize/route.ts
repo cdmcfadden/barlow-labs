@@ -4,12 +4,14 @@ import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { getSql } from "@/lib/db";
 import { userNameMap } from "@/lib/archive";
 
-export const maxDuration = 300;
+// Hobby plan caps functions at 60s; the sync is checkpointed, so a run that
+// hits the ceiling simply resumes from its cursor on the next invocation.
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 const MODEL = "claude-opus-5";
-// One month of one channel per API call; a few per invocation keeps us inside
-// the function's time budget.
+// One month of one channel per API call. They run concurrently, so the batch
+// size is bounded by the 60s function ceiling rather than by their sum.
 const DEFAULT_BATCH = 4;
 
 const SYSTEM = `You write the monthly summary pages for a private Slack archive
@@ -75,9 +77,8 @@ export async function GET(request: NextRequest) {
 
   const client = new Anthropic();
   const names = await userNameMap();
-  const written: string[] = [];
 
-  for (const item of pending) {
+  async function summarize(item: Pending): Promise<string | null> {
     const messages = (await sql`
       SELECT to_char(posted_at, 'YYYY-MM-DD HH24:MI') AS at, user_name, text, thread_ts, ts
       FROM archive_messages
@@ -104,6 +105,9 @@ export async function GET(request: NextRequest) {
       model: MODEL,
       max_tokens: 8000,
       thinking: { type: "adaptive" },
+      // Medium effort keeps a month's summary inside the function's ceiling;
+      // these transcripts don't need deep reasoning.
+      output_config: { effort: "medium" },
       system: SYSTEM,
       messages: [
         {
@@ -118,7 +122,7 @@ export async function GET(request: NextRequest) {
       .map((block) => block.text)
       .join("\n")
       .trim();
-    if (!summary) continue;
+    if (!summary) return null;
 
     await sql`
       INSERT INTO archive_summaries (channel_id, month, summary, message_count, model, generated_at)
@@ -127,8 +131,24 @@ export async function GET(request: NextRequest) {
         summary = EXCLUDED.summary, message_count = EXCLUDED.message_count,
         model = EXCLUDED.model, generated_at = now()
     `;
-    written.push(`#${item.name} ${item.month}`);
+    return `#${item.name} ${item.month}`;
   }
 
-  return NextResponse.json({ ok: true, summarized: written, remaining: pending.length - written.length });
+  // Concurrent so a batch costs one call's latency, not four.
+  const results = await Promise.allSettled(pending.map(summarize));
+  const written = results
+    .filter((result): result is PromiseFulfilledResult<string> =>
+      result.status === "fulfilled" && Boolean(result.value)
+    )
+    .map((result) => result.value);
+  const errors = results
+    .filter((result): result is PromiseRejectedResult => result.status === "rejected")
+    .map((result) => String(result.reason));
+
+  return NextResponse.json({
+    ok: true,
+    summarized: written,
+    failed: errors,
+    remaining: pending.length - written.length,
+  });
 }

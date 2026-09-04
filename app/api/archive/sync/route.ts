@@ -14,14 +14,16 @@ import {
   type SlackMessage,
 } from "@/lib/slack";
 
-export const maxDuration = 300;
+// Hobby plan caps functions at 60s; the sync is checkpointed, so a run that
+// hits the ceiling simply resumes from its cursor on the next invocation.
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 // Free-plan Slack stops returning history at ~90 days. We start a cold channel
 // a little inside that edge so the first run doesn't chase messages Slack has
 // already dropped.
 const COLD_START_DAYS = 88;
-const DEFAULT_BUDGET_MS = 50_000;
+const DEFAULT_BUDGET_MS = 45_000;
 const USER_REFRESH_HOURS = 12;
 // Screen recordings can run to hundreds of MB; skip the outliers rather than
 // quietly filling the Blob store. Their metadata is still archived.
