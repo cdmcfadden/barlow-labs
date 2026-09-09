@@ -12,14 +12,13 @@ export async function middleware(request: NextRequest) {
   const required = path.startsWith("/f3") ? workspaceBySlug("f3")! : WORKSPACES[0];
 
   const session = await openSession(request.cookies.get(SESSION_COOKIE)?.value);
-  if (session) {
-    const team = session.team ?? WORKSPACES[0].teamId;
-    if (team === required.teamId) return NextResponse.next();
-    return NextResponse.redirect(
-      new URL("/access-denied?reason=wrong_workspace", request.nextUrl.origin)
-    );
+  if (session && (session.team ?? WORKSPACES[0].teamId) === required.teamId) {
+    return NextResponse.next();
   }
 
+  // No session, or one from the other workspace: send them through sign-in for
+  // the workspace they are trying to reach. People who belong to both — and a
+  // session only ever holds one — would otherwise dead-end on access-denied.
   const login = new URL("/api/auth/slack/login", request.nextUrl.origin);
   login.searchParams.set("next", path + request.nextUrl.search);
   login.searchParams.set("workspace", required.slug);

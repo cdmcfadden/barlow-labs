@@ -18,7 +18,14 @@ export async function GET(request: NextRequest) {
     workspaceBySlug(request.cookies.get("bl_oauth_ws")?.value ?? "") ?? WORKSPACES[0];
 
   const fail = (reason: string) =>
-    NextResponse.redirect(new URL(`/access-denied?reason=${encodeURIComponent(reason)}`, request.nextUrl.origin));
+    NextResponse.redirect(
+      new URL(
+        `/access-denied?reason=${encodeURIComponent(reason)}&workspace=${encodeURIComponent(
+          request.cookies.get("bl_oauth_ws")?.value ?? ""
+        )}&next=${encodeURIComponent(request.cookies.get("bl_oauth_next")?.value ?? "")}`,
+        request.nextUrl.origin
+      )
+    );
 
   if (!code || !state || !expectedState || state !== expectedState) {
     return fail("state_mismatch");
