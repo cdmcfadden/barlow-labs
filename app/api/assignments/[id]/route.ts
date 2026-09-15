@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { getSql } from "@/lib/db";
+import { onCompleted } from "@/lib/lanternflies/flow";
 
 const STATUSES = ["not_started", "in_process", "completed", "problem"] as const;
 
@@ -37,7 +38,14 @@ export async function PATCH(
     if (!STATUSES.includes(body.status as (typeof STATUSES)[number])) {
       return NextResponse.json({ error: "bad_status" }, { status: 400 });
     }
-    await sql`UPDATE lanternfly_assignments SET status = ${body.status} WHERE id = ${id}`;
+    await sql`
+      UPDATE lanternfly_assignments
+      SET status = ${body.status},
+          completed_at = CASE WHEN ${body.status} = 'completed' THEN now() ELSE NULL END
+      WHERE id = ${id}
+    `;
+    // Tell the builder in Slack that there's a test to confirm.
+    if (body.status === "completed") after(() => onCompleted(id));
   }
   return NextResponse.json({ ok: true });
 }

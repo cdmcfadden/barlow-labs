@@ -1,0 +1,47 @@
+{
+  "display_information": {
+    "name": "Lanternflies",
+    "description": "Founders trade testing time: test a product, earn credits, get yours tested.",
+    "long_description": "Lanternflies is a testing exchange for founders. Release a test request from Slack and we match you with founders across every community that uses Lanternflies. Testers earn credits for each test they finish, and spend those credits to get their own product tested. Everything happens in Slack: a Home tab with your balance and open requests, match DMs with one-click Take a slot, and a simple done-and-confirm flow so credits only move when a test is actually finished. We're squashing bugs together.",
+    "background_color": "#1b2a1f"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": true
+    },
+    "bot_user": {
+      "display_name": "Lanternflies",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/lanternflies",
+        "url": "https://www.barlow-labs.com/api/lanternflies/slack/commands",
+        "description": "Request a test, take one, or check your credits",
+        "usage_hint": "[new | profile | balance]",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": ["https://www.barlow-labs.com/api/lanternflies/slack/oauth"],
+    "scopes": {
+      "bot": ["commands", "chat:write", "im:write", "users:read"]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://www.barlow-labs.com/api/lanternflies/slack/events",
+      "bot_events": ["app_home_opened", "app_uninstalled", "tokens_revoked"]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://www.barlow-labs.com/api/lanternflies/slack/interactions"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

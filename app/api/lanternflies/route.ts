@@ -1,11 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { getSql } from "@/lib/db";
-
-// A lanternfly is worth 1 credit per 20 minutes of estimated effort, rounded up.
-function creditsForMinutes(minutes: number): number {
-  return Math.max(1, Math.ceil(minutes / 20));
-}
+import { dispatchOffers } from "@/lib/lanternflies/flow";
+import { LEGACY_TEAM, createFly, ensureMember } from "@/lib/lanternflies/store";
 
 export async function GET(request: NextRequest) {
   const auth = await requireSession(request);
@@ -56,16 +53,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "slots must be 1-50" }, { status: 400 });
   }
 
-  const sql = getSql();
-  const rows = (await sql`
-    INSERT INTO lanternflies
-      (builder_sub, builder_name, title, description, effort_minutes, slots,
-       access_directions, credits)
-    VALUES
-      (${session.sub}, ${session.name}, ${title}, ${body.description ?? ""},
-       ${effortMinutes}, ${slots}, ${body.accessDirections ?? ""},
-       ${creditsForMinutes(effortMinutes)})
-    RETURNING id
-  `) as { id: number }[];
-  return NextResponse.json({ id: rows[0].id });
+  const { member } = await ensureMember(session.team ?? LEGACY_TEAM, session.sub, session.name);
+  const id = await createFly(member, {
+    title,
+    description: body.description ?? "",
+    access: body.accessDirections ?? "",
+    effortMinutes,
+    slots: Math.min(slots, 10),
+    platforms: [],
+    circle: "everyone",
+  });
+  // Web-released lanternflies reach Slack testers too.
+  after(() => dispatchOffers(id));
+  return NextResponse.json({ id });
 }
