@@ -1,8 +1,32 @@
+import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
-export const metadata = {
+const description = "Founders trade testing time in Slack. Test a product, earn credits, get yours tested.";
+
+export const metadata: Metadata = {
+  metadataBase: new URL("https://www.barlow-labs.com"),
   title: "Lanternflies | Barlow Labs",
-  description: "Founders trade testing time in Slack. Test a product, earn credits, get yours tested.",
+  description,
+  icons: {
+    icon: [{ url: "/lanternflies/favicon-32.png", sizes: "32x32", type: "image/png" }],
+    apple: "/lanternflies/apple-touch-icon.png",
+  },
+  openGraph: {
+    title: "Lanternflies — squash bugs together",
+    description,
+    url: "/lanternflies",
+    siteName: "Barlow Labs",
+    type: "website",
+    images: [{ url: "/lanternflies/og.png", width: 1200, height: 630, alt: "Lanternflies: squash bugs together" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    site: "@barlowlabs",
+    title: "Lanternflies — squash bugs together",
+    description,
+    images: ["/lanternflies/og.png"],
+  },
 };
 
 const steps = [
@@ -83,6 +107,14 @@ export default async function LanternfliesPage({
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 -top-10 -z-10 mx-auto h-[420px] max-w-4xl bg-gradient-to-b from-primary/20 via-accent/10 to-transparent blur-3xl"
+        />
+        <Image
+          src="/lanternflies/lanternflies-icon-512.png"
+          alt="Lanternflies icon: a spotted lanternfly with a glowing lantern body"
+          width={112}
+          height={112}
+          priority
+          className="mb-8 rounded-[24px] shadow-[0_0_60px_rgba(255,170,40,0.35)]"
         />
         <p className="mb-5 text-sm uppercase tracking-[0.2em] text-accent">For founders, in Slack</p>
         <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
