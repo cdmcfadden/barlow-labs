@@ -1,7 +1,7 @@
 // Turns what Jira and GitHub returned into the numbers on the page. Pure: no
 // fetching, no clock except the `now` it is handed.
 
-import { PEOPLE, REVIEW_RANK, STALE_AFTER_DAYS, WORKFLOW, isBot } from "./config";
+import { PEOPLE, REVIEW_RANK, SHIPPED_STATUS, STALE_AFTER_DAYS, WORKFLOW, isBot } from "./config";
 import type { GitHubData } from "./github";
 import type { JiraData, JiraIssue, StatusCategory } from "./jira";
 
@@ -18,14 +18,19 @@ export type IssueRef = {
 
 export type PersonRow = {
   name: string;
-  closed: number;
-  inProgress: IssueRef[];
-  /** Times their work was sent back out of review. */
+  /** Tickets they built that reached Live. */
+  shipped: number;
+  /** Tickets they handed to QA. */
+  handedToQa: number;
+  /** Open tickets assigned to them right now. */
+  holding: IssueRef[];
+  /** Times work they built was sent back out of QA. */
   bouncedBack: number;
   /** Times they sent someone's work back — the QA side of the same event. */
   sentBack: number;
-  /** Tickets they moved from review to done. */
+  /** Tickets they passed out of QA. */
   approved: number;
+  comments: number;
   commits: number;
   prsOpened: number;
   prsMerged: number;
@@ -38,6 +43,7 @@ export type PersonRow = {
 export type Bounce = {
   issue: IssueRef;
   count: number;
+  builder: string | null;
   moves: { at: number; from: string; to: string; by: string | null; reopened: boolean }[];
 };
 
@@ -50,22 +56,25 @@ export type Metrics = {
   github: boolean;
   totals: {
     created: number;
-    closed: number;
+    shipped: number;
+    handedToQa: number;
     openNow: number;
+    waitingDeploy: number;
     medianCycleDays: number | null;
     medianLeadDays: number | null;
-    reachedReview: number;
+    reachedQa: number;
     bouncedIssues: number;
+    comments: number;
     commits: number;
     prsMerged: number;
   };
-  series: { start: number; end: number; created: number; closed: number }[];
+  series: { start: number; end: number; created: number; shipped: number }[];
   openByStatus: { status: string; count: number }[];
   people: PersonRow[];
   bots: { name: string; commits: number; prs: number }[];
   bounces: Bounce[];
   stuck: Stuck[];
-  projects: { key: string; created: number; closed: number; open: number; openHigh: number }[];
+  projects: { key: string; created: number; shipped: number; open: number; openHigh: number }[];
   repos: { name: string; commits: number; prsMerged: number }[];
 };
 
@@ -92,10 +101,10 @@ function personResolver() {
 export function rankOf(status: string, categories: Record<string, StatusCategory>): number {
   const i = WORKFLOW.findIndex((w) => w.toLowerCase() === status.toLowerCase());
   if (i >= 0) return i;
-  if (/review|qa|test/i.test(status)) return REVIEW_RANK;
+  if (/review|qa|test|uat/i.test(status)) return REVIEW_RANK;
   const c = categories[status];
   if (c === "new") return 0;
-  if (c === "done") return REVIEW_RANK + 1;
+  if (c === "done") return WORKFLOW.length; // Won't Do and the like: off the board
   return REVIEW_RANK - 1;
 }
 
@@ -109,6 +118,26 @@ export function assigneeAt(issue: JiraIssue, at: number): string | null {
     who = c.to;
   }
   return who;
+}
+
+/**
+ * Who built a ticket, as of a moment: whoever held it when it last crossed
+ * into QA before then — or, if nobody held it, whoever moved it across.
+ *
+ * Not the assignee at the end: the habit here is to reassign a ticket to the
+ * reviewer on the way into QA, so by the time it is Live it belongs to Parth
+ * or Chris, and crediting them would erase every developer from the page.
+ */
+export function builderAt(issue: JiraIssue, at: number, rank: (s: string | null) => number): string | null {
+  let handover: JiraIssue["history"][number] | undefined;
+  for (const m of issue.history) {
+    if (m.at > at) break;
+    if (m.field === "status" && rank(m.from) < REVIEW_RANK && rank(m.to) >= REVIEW_RANK) handover = m;
+  }
+  if (!handover) return assigneeAt(issue, at);
+  // Read the holder just before the move: a reassignment to the reviewer made
+  // in the same edit shares its timestamp and would otherwise win.
+  return assigneeAt(issue, handover.at - 1) ?? handover.by;
 }
 
 function ref(i: JiraIssue): IssueRef {
@@ -132,8 +161,11 @@ export function computeMetrics(
   const inWindow = (t: number) => t >= start && t <= now;
   const who = personResolver();
   const cats = jira?.categories ?? {};
-  const cat = (s: string | null): StatusCategory | undefined => (s ? cats[s] : undefined);
   const rank = (s: string | null) => (s ? rankOf(s, cats) : 0);
+  const shippedRank = rank(SHIPPED_STATUS);
+  const devRank = rank("In Development");
+  const passRank = rank("Ready for Deployed");
+  const isShipped = (s: string | null) => s !== null && s.toLowerCase() === SHIPPED_STATUS.toLowerCase();
 
   const people = new Map<string, PersonRow & { _merge: number[]; _where: Map<string, number> }>();
   const person = (name: string) => {
@@ -141,11 +173,13 @@ export function computeMetrics(
     if (!p) {
       p = {
         name,
-        closed: 0,
-        inProgress: [],
+        shipped: 0,
+        handedToQa: 0,
+        holding: [],
         bouncedBack: 0,
         sentBack: 0,
         approved: 0,
+        comments: 0,
         commits: 0,
         prsOpened: 0,
         prsMerged: 0,
@@ -168,14 +202,17 @@ export function computeMetrics(
   const binCount = Math.ceil((days * DAY) / binSize);
   const series = Array.from({ length: binCount }, (_, i) => {
     const end = now - (binCount - 1 - i) * binSize;
-    return { start: Math.max(start, end - binSize), end, created: 0, closed: 0 };
+    return { start: Math.max(start, end - binSize), end, created: 0, shipped: 0 };
   });
   const bin = (t: number) => series.find((b) => t > b.start && t <= b.end) ?? (t === start ? series[0] : undefined);
 
   let created = 0;
-  let closed = 0;
+  let shipped = 0;
+  let handedToQa = 0;
+  let comments = 0;
+  let waitingDeploy = 0;
   // Distinct tickets, so the bounce rate divides tickets by tickets.
-  const reachedReview = new Set<string>();
+  const reachedQa = new Set<string>();
   const cycle: number[] = [];
   const lead: number[] = [];
   const bounces: Bounce[] = [];
@@ -184,7 +221,7 @@ export function computeMetrics(
   const projects = new Map<string, Metrics["projects"][number]>();
   const project = (k: string) => {
     let p = projects.get(k);
-    if (!p) projects.set(k, (p = { key: k, created: 0, closed: 0, open: 0, openHigh: 0 }));
+    if (!p) projects.set(k, (p = { key: k, created: 0, shipped: 0, open: 0, openHigh: 0 }));
     return p;
   };
 
@@ -199,67 +236,85 @@ export function computeMetrics(
       if (b) b.created++;
     }
 
-    // Closed: its last arrival in a done status inside the window, credited to
-    // whoever held the ticket at that moment — not whoever holds it now, which
-    // after a hand-off to QA is often someone else.
-    const doneEntries = statusMoves.filter(
-      (m) => cat(m.to) === "done" && cat(m.from) !== "done" && inWindow(m.at)
-    );
-    const lastDone = doneEntries.at(-1);
-    if (lastDone) {
-      closed++;
-      proj.closed++;
-      const b = bin(lastDone.at);
-      if (b) b.closed++;
-      const owner = assigneeAt(issue, lastDone.at);
-      if (owner) {
-        const p = person(who.jira(owner));
-        p.closed++;
+    for (const c of issue.comments) {
+      if (!inWindow(c.at) || !c.by) continue;
+      comments++;
+      const p = person(who.jira(c.by));
+      p.comments++;
+      credit(p, issue.project);
+    }
+
+    // Shipped: its last arrival at Live inside the window, credited to the
+    // developer who built it. A ticket shipped twice counts once.
+    const lastLive = statusMoves.filter((m) => isShipped(m.to) && !isShipped(m.from) && inWindow(m.at)).at(-1);
+    if (lastLive) {
+      shipped++;
+      proj.shipped++;
+      const b = bin(lastLive.at);
+      if (b) b.shipped++;
+      const builder = builderAt(issue, lastLive.at, rank);
+      if (builder) {
+        const p = person(who.jira(builder));
+        p.shipped++;
         credit(p, issue.project);
       }
-      lead.push(lastDone.at - issue.created);
-      const started = statusMoves.find((m) => cat(m.to) === "indeterminate" || rank(m.to) >= REVIEW_RANK);
-      if (started && started.at <= lastDone.at) cycle.push(lastDone.at - started.at);
+      lead.push(lastLive.at - issue.created);
+      const started = statusMoves.find((m) => rank(m.to) >= devRank && rank(m.to) <= shippedRank);
+      if (started && started.at <= lastLive.at) cycle.push(lastLive.at - started.at);
     }
 
     for (const m of statusMoves) {
       if (!inWindow(m.at)) continue;
       const from = rank(m.from);
       const to = rank(m.to);
-      if (from < REVIEW_RANK && to >= REVIEW_RANK) reachedReview.add(issue.key);
-      if (from >= REVIEW_RANK && to >= REVIEW_RANK && cat(m.from) !== "done" && cat(m.to) === "done" && m.by) {
+      if (from < REVIEW_RANK && to >= REVIEW_RANK && to <= shippedRank) {
+        reachedQa.add(issue.key);
+        handedToQa++;
+        const builder = builderAt(issue, m.at, rank);
+        if (builder) person(who.jira(builder)).handedToQa++;
+      }
+      // Passed QA: out of the QA statuses into Ready for Deployed or Live.
+      if (from >= REVIEW_RANK && from < passRank && to >= passRank && to <= shippedRank && m.by) {
         person(who.jira(m.by)).approved++;
       }
     }
 
-    const back = statusMoves.filter((m) => inWindow(m.at) && rank(m.from) >= REVIEW_RANK && rank(m.to) < REVIEW_RANK);
+    const back = statusMoves.filter(
+      (m) => inWindow(m.at) && rank(m.from) >= REVIEW_RANK && rank(m.from) <= shippedRank && rank(m.to) < REVIEW_RANK
+    );
     if (back.length) {
-      // Was in review by definition, even if it arrived before the window.
-      reachedReview.add(issue.key);
+      // Was in QA by definition, even if it arrived before the window.
+      reachedQa.add(issue.key);
+      const builder = builderAt(issue, back.at(-1)!.at, rank);
       bounces.push({
         issue: ref(issue),
         count: back.length,
+        builder: builder ? who.jira(builder) : null,
         moves: back.map((m) => ({
           at: m.at,
           from: m.from ?? "?",
           to: m.to ?? "?",
           by: m.by ? who.jira(m.by) : null,
-          reopened: cat(m.from) === "done",
+          reopened: isShipped(m.from),
         })),
       });
       for (const m of back) {
-        const owner = assigneeAt(issue, m.at);
-        if (owner) person(who.jira(owner)).bouncedBack++;
+        const b = builderAt(issue, m.at, rank);
+        if (b) person(who.jira(b)).bouncedBack++;
         if (m.by) person(who.jira(m.by)).sentBack++;
       }
     }
 
-    if (issue.category !== "done") {
+    // Open: anything on the board short of Live. Ready for Deployed is open —
+    // passed QA, but not in anyone's hands yet.
+    const open = !isShipped(issue.status) && rank(issue.status) < shippedRank;
+    if (open) {
       proj.open++;
       openByStatus.set(issue.status, (openByStatus.get(issue.status) ?? 0) + 1);
+      if (rank(issue.status) === passRank) waitingDeploy++;
       if (issue.priority && issue.priority in STALE_AFTER_DAYS) proj.openHigh++;
-      if (issue.category === "indeterminate" && issue.assignee) {
-        person(who.jira(issue.assignee)).inProgress.push(ref(issue));
+      if (issue.assignee && rank(issue.status) >= devRank) {
+        person(who.jira(issue.assignee)).holding.push(ref(issue));
       }
       const threshold = issue.priority ? STALE_AFTER_DAYS[issue.priority] : undefined;
       if (threshold !== undefined) {
@@ -333,10 +388,17 @@ export function computeMetrics(
     }))
     .filter(
       (r) =>
-        r.closed + r.inProgress.length + r.bouncedBack + r.sentBack + r.approved + r.commits + r.prsOpened + r.prsMerged + r.reviews >
+        r.shipped + r.handedToQa + r.holding.length + r.bouncedBack + r.sentBack + r.approved + r.comments +
+          r.commits + r.prsOpened + r.prsMerged + r.reviews >
         0
     )
-    .sort((a, b) => b.closed - a.closed || b.prsMerged - a.prsMerged || b.commits - a.commits);
+    .sort(
+      (a, b) =>
+        b.shipped - a.shipped || b.handedToQa - a.handedToQa || b.prsMerged - a.prsMerged || b.commits - a.commits
+    );
+
+  const cycleMedian = median(cycle);
+  const leadMedian = median(lead);
 
   return {
     days,
@@ -345,12 +407,15 @@ export function computeMetrics(
     github: gh !== null,
     totals: {
       created,
-      closed,
+      shipped,
+      handedToQa,
       openNow: [...openByStatus.values()].reduce((a, b) => a + b, 0),
-      medianCycleDays: median(cycle) === null ? null : median(cycle)! / DAY,
-      medianLeadDays: median(lead) === null ? null : median(lead)! / DAY,
-      reachedReview: reachedReview.size,
+      waitingDeploy,
+      medianCycleDays: cycleMedian === null ? null : cycleMedian / DAY,
+      medianLeadDays: leadMedian === null ? null : leadMedian / DAY,
+      reachedQa: reachedQa.size,
       bouncedIssues: bounces.length,
+      comments,
       commits,
       prsMerged,
     },
@@ -362,7 +427,7 @@ export function computeMetrics(
     bots: [...bots.values()].sort((a, b) => b.commits - a.commits),
     bounces: bounces.sort((a, b) => b.count - a.count || b.moves.at(-1)!.at - a.moves.at(-1)!.at),
     stuck: stuck.sort((a, b) => priorityOrder(a.issue.priority) - priorityOrder(b.issue.priority) || b.days - a.days),
-    projects: [...projects.values()].filter((p) => p.created + p.closed + p.open > 0).sort((a, b) => b.open - a.open),
+    projects: [...projects.values()].filter((p) => p.created + p.shipped + p.open > 0).sort((a, b) => b.open - a.open),
     repos: [...repos.values()].sort((a, b) => b.commits + b.prsMerged - (a.commits + a.prsMerged)),
   };
 }

@@ -6,7 +6,7 @@ import { fetchJira, jiraConfigured, type JiraData } from "./jira";
 // morning from spending the GitHub rate limit on the same numbers.
 const HOUR = 3600;
 
-const cachedJira = unstable_cache(async () => ({ at: Date.now(), data: await fetchJira() }), ["eng-jira-v1"], {
+const cachedJira = unstable_cache(async () => ({ at: Date.now(), data: await fetchJira() }), ["eng-jira-v2"], {
   revalidate: HOUR,
 });
 const cachedGitHub = unstable_cache(async () => ({ at: Date.now(), data: await fetchGitHub() }), ["eng-github-v1"], {

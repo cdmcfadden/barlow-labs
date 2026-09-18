@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 
-type Bin = { start: number; end: number; created: number; closed: number };
+type Bin = { start: number; end: number; created: number; shipped: number };
 
 // Validated as a pair against the card surface (#171c26): CVD ΔE 26.8,
 // both ≥ 3:1. Values and labels stay in text colours, never these.
 const CREATED = "#3987e5";
-const CLOSED = "#d95926";
+const SHIPPED = "#d95926";
 
 const W = 720;
 const H = 220;
@@ -19,7 +19,7 @@ function fmt(t: number) {
 
 export default function FlowChart({ series, daily }: { series: Bin[]; daily: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
-  const max = Math.max(1, ...series.flatMap((b) => [b.created, b.closed]));
+  const max = Math.max(1, ...series.flatMap((b) => [b.created, b.shipped]));
   const step = niceStep(max);
   const top = Math.ceil(max / step) * step;
   const plotW = W - PAD.left - PAD.right;
@@ -34,9 +34,9 @@ export default function FlowChart({ series, daily }: { series: Bin[]; daily: boo
     <figure className="relative">
       <div className="mb-3 flex items-center gap-5 text-sm text-muted-foreground">
         <Legend color={CREATED} label="Created" />
-        <Legend color={CLOSED} label="Closed" />
+        <Legend color={SHIPPED} label="Shipped to Live" />
       </div>
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Tickets created and closed over time">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Tickets created and shipped to Live over time">
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="hsl(220 20% 22%)" strokeWidth={t === 0 ? 1 : 0.5} />
@@ -51,7 +51,7 @@ export default function FlowChart({ series, daily }: { series: Bin[]; daily: boo
             <g key={b.end} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x={PAD.left + band * i} y={PAD.top} width={band} height={plotH} fill={hover === i ? "hsl(220 20% 18% / 0.6)" : "transparent"} />
               <Bar x={cx - bar - 1} w={bar} y0={y(0)} y1={y(b.created)} color={CREATED} />
-              <Bar x={cx + 1} w={bar} y0={y(0)} y1={y(b.closed)} color={CLOSED} />
+              <Bar x={cx + 1} w={bar} y0={y(0)} y1={y(b.shipped)} color={SHIPPED} />
               {i % labelEvery === 0 && (
                 <text x={cx} y={H - 8} textAnchor="middle" fontSize={11} fill="hsl(40 20% 65%)">
                   {fmt(daily ? b.end - 1 : b.start)}
@@ -70,7 +70,7 @@ export default function FlowChart({ series, daily }: { series: Bin[]; daily: boo
             {daily ? fmt(series[hover].end - 1) : `${fmt(series[hover].start)} – ${fmt(series[hover].end)}`}
           </div>
           <Row color={CREATED} label="Created" value={series[hover].created} />
-          <Row color={CLOSED} label="Closed" value={series[hover].closed} />
+          <Row color={SHIPPED} label="Shipped" value={series[hover].shipped} />
         </div>
       )}
     </figure>

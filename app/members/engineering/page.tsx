@@ -57,13 +57,13 @@ export default async function EngineeringPage({
       <Tiles m={m} />
 
       {m.jira && (
-        <Panel title="Tickets created and closed" note={days <= 7 ? "Per day" : "Per week"}>
+        <Panel title="Tickets created and shipped to Live" note={days <= 7 ? "Per day" : "Per week"}>
           <FlowChart series={m.series} daily={days <= 7} />
           <details className="mt-3 text-sm text-muted-foreground">
             <summary className="cursor-pointer hover:text-foreground">Show as a table</summary>
             <Table
-              head={["Period", "Created", "Closed"]}
-              rows={m.series.map((b) => [range(b.start, b.end), b.created, b.closed])}
+              head={["Period", "Created", "Shipped"]}
+              rows={m.series.map((b) => [range(b.start, b.end), b.created, b.shipped])}
               numeric={[1, 2]}
             />
           </details>
@@ -83,8 +83,8 @@ export default async function EngineeringPage({
         {m.jira && (
           <Panel title="By Jira project" tight>
             <Table
-              head={["Project", "Closed", "Open", "Open, high"]}
-              rows={m.projects.map((p) => [p.key, p.closed, p.open, p.openHigh])}
+              head={["Project", "Shipped", "Open", "Open, high"]}
+              rows={m.projects.map((p) => [p.key, p.shipped, p.open, p.openHigh])}
               numeric={[1, 2, 3]}
             />
           </Panel>
@@ -107,22 +107,24 @@ export default async function EngineeringPage({
 
 function Tiles({ m }: { m: Metrics }) {
   const t = m.totals;
-  const bounceRate = t.reachedReview ? t.bouncedIssues / t.reachedReview : null;
+  const bounceRate = t.reachedQa ? t.bouncedIssues / t.reachedQa : null;
   const tiles: { label: string; value: string; sub: string }[] = [];
   if (m.jira) {
     tiles.push(
-      { label: "Tickets closed", value: String(t.closed), sub: `${t.created} created · net ${signed(t.closed - t.created)}` },
+      { label: "Shipped to Live", value: String(t.shipped), sub: `${t.created} created · net ${signed(t.shipped - t.created)}` },
+      { label: "Waiting to deploy", value: String(t.waitingDeploy), sub: "passed QA, not yet Live" },
       { label: "Open now", value: String(t.openNow), sub: `${m.stuck.length} high-priority stuck` },
       {
         label: "Median cycle time",
         value: t.medianCycleDays === null ? "—" : `${t.medianCycleDays.toFixed(1)}d`,
-        sub: t.medianLeadDays === null ? "work started to done" : `${t.medianLeadDays.toFixed(1)}d from ticket created`,
+        sub: t.medianLeadDays === null ? "development started to Live" : `${t.medianLeadDays.toFixed(1)}d from ticket created`,
       },
       {
-        label: "Bounced out of review",
+        label: "Bounced back from QA",
         value: String(t.bouncedIssues),
-        sub: bounceRate === null ? "no tickets reached review" : `${Math.round(bounceRate * 100)}% of ${t.reachedReview} tickets that reached review`,
-      }
+        sub: bounceRate === null ? "no tickets reached QA" : `${Math.round(bounceRate * 100)}% of ${t.reachedQa} tickets that reached QA`,
+      },
+      { label: "Ticket comments", value: t.comments.toLocaleString(), sub: `${(t.comments / Math.max(1, m.days)).toFixed(1)} a day` }
     );
   }
   if (m.github) {
@@ -133,7 +135,7 @@ function Tiles({ m }: { m: Metrics }) {
   }
   if (!tiles.length) return null;
   return (
-    <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+    <div className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-4">
       {tiles.map((tile) => (
         <div key={tile.label} className="rounded-lg border bg-card p-4">
           <p className="text-sm text-muted-foreground">{tile.label}</p>
@@ -174,11 +176,13 @@ function StuckPanel({ m }: { m: Metrics }) {
 function PeoplePanel({ m }: { m: Metrics }) {
   if (!m.people.length) return null;
   const cols: { head: string; cell: (p: Metrics["people"][number]) => React.ReactNode; show: boolean; title?: string }[] = [
-    { head: "Closed", cell: (p) => p.closed, show: m.jira, title: "Tickets they held when it reached done" },
-    { head: "In progress", cell: (p) => p.inProgress.length || "", show: m.jira },
-    { head: "Bounced back", cell: (p) => p.bouncedBack || "", show: m.jira, title: "Times their ticket was sent back out of review" },
-    { head: "Sent back", cell: (p) => p.sentBack || "", show: m.jira, title: "Times they sent a ticket back out of review" },
-    { head: "Approved", cell: (p) => p.approved || "", show: m.jira, title: "Tickets they moved from review to done" },
+    { head: "Shipped", cell: (p) => p.shipped || "", show: m.jira, title: "Tickets they built that reached Live" },
+    { head: "To QA", cell: (p) => p.handedToQa || "", show: m.jira, title: "Times they handed a ticket to QA (moved to UAT or later)" },
+    { head: "Bounced back", cell: (p) => p.bouncedBack || "", show: m.jira, title: "Times work they built was sent back from QA to development" },
+    { head: "Sent back", cell: (p) => p.sentBack || "", show: m.jira, title: "Times they sent a ticket back from QA to development" },
+    { head: "Passed QA", cell: (p) => p.approved || "", show: m.jira, title: "Tickets they moved out of QA to Ready for Deployed or Live" },
+    { head: "Comments", cell: (p) => p.comments || "", show: m.jira, title: "Comments they wrote on Jira tickets" },
+    { head: "Holding", cell: (p) => p.holding.length || "", show: m.jira, title: "Open tickets assigned to them now, In Development or later" },
     { head: "Commits", cell: (p) => p.commits || "", show: m.github },
     { head: "PRs opened", cell: (p) => p.prsOpened || "", show: m.github },
     { head: "PRs merged", cell: (p) => p.prsMerged || "", show: m.github },
@@ -211,11 +215,11 @@ function PeoplePanel({ m }: { m: Metrics }) {
               <tr key={p.name} className="border-b align-top last:border-0">
                 <td className="py-2 pr-4">
                   <div className="whitespace-nowrap">{p.name}</div>
-                  {p.inProgress.length > 0 && (
+                  {p.holding.length > 0 && (
                     <details className="mt-1 text-xs text-muted-foreground">
-                      <summary className="cursor-pointer hover:text-foreground">Working on</summary>
+                      <summary className="cursor-pointer hover:text-foreground">Holding</summary>
                       <ul className="mt-1 space-y-1">
-                        {p.inProgress.map((i) => (
+                        {p.holding.map((i) => (
                           <li key={i.key}>
                             <IssueLink issue={i} /> <span>· {i.status}</span>
                           </li>
@@ -255,17 +259,17 @@ function BouncePanel({ m }: { m: Metrics }) {
   return (
     <Panel
       title="Tickets bounced between dev and QA"
-      note="Moved out of In Review or later, back to an earlier status. Reopened means it had reached done."
+      note="Moved from UAT or later back to development. Reopened means it had reached Live."
     >
       {m.bounces.length === 0 ? (
         <Empty>Nothing was sent back in this window.</Empty>
       ) : (
         <Table
-          head={["Ticket", "Times", "Assignee", "Now", "Moves"]}
+          head={["Ticket", "Times", "Built by", "Now", "Moves"]}
           rows={m.bounces.map((b) => [
             <IssueLink key="i" issue={b.issue} />,
             b.count,
-            b.issue.assignee ?? "—",
+            b.builder ?? "—",
             b.issue.status,
             <ul key="m" className="space-y-0.5 text-xs text-muted-foreground">
               {b.moves.map((mv) => (
@@ -290,27 +294,32 @@ function Method({ m }: { m: Metrics }) {
       <summary className="cursor-pointer hover:text-foreground">How these are counted</summary>
       <ul className="mt-3 max-w-3xl list-disc space-y-2 pl-5">
         <li>
-          <strong className="text-foreground">Closed</strong> is a ticket arriving in a done status (Ready for Deployed,
-          Live) inside the window, credited to whoever it was assigned to at that moment. A ticket closed twice counts once.
+          <strong className="text-foreground">Shipped</strong> is a ticket arriving at Live inside the window. Ready for
+          Deployed does not count — it is shown as waiting to deploy, and stays on the stuck list if it sits.
         </li>
         <li>
-          <strong className="text-foreground">Cycle time</strong> runs from the first move into an in-progress status to
-          done; lead time from the ticket being created.
+          <strong className="text-foreground">Credit goes to whoever built it</strong>: the person holding the ticket
+          when it last moved into UAT (or, if nobody held it, whoever moved it). Not the assignee at the end — tickets are
+          reassigned to the reviewer on the way into QA, so that would credit the reviewer.
         </li>
         <li>
-          <strong className="text-foreground">A bounce</strong> is any move out of In Review (or later) back to an
-          earlier status. The assignee at that moment gets &ldquo;bounced back&rdquo;; the person who moved it gets
-          &ldquo;sent back&rdquo;.
+          <strong className="text-foreground">A bounce</strong> is a move from UAT or later back to development. The
+          builder gets &ldquo;bounced back&rdquo;; the person who moved it gets &ldquo;sent back&rdquo;.
+        </li>
+        <li>
+          <strong className="text-foreground">Cycle time</strong> runs from first entering In Development to Live; lead
+          time from the ticket being created.
         </li>
         <li>
           <strong className="text-foreground">Commits</strong> are on each repo&apos;s default branch, excluding merge
-          commits. Repos are every one pushed to in the last 90 days.
+          commits. Repos are every one pushed to in the last 90 days. Work done through Lovable is committed by its bot,
+          which does not record who asked for it.
         </li>
         <li>
           People are matched across Jira and GitHub by the list in <code>lib/eng/config.ts</code>; anyone not in it
           appears under the name the source used.
         </li>
-        {m.github && <li>Counts are relative to what each tool records — they show activity, not the value of it.</li>}
+        <li>These show activity, not the value of it.</li>
       </ul>
     </details>
   );

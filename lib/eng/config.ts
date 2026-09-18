@@ -13,25 +13,36 @@ export const PEOPLE: { name: string; jira: string[]; github: string[] }[] = [
   { name: "Monil", jira: ["Monil"], github: ["moniljainn18", "Monil"] },
   { name: "Vishal Gajera", jira: ["vishal.gajera"], github: ["vishal-softyoi"] },
   { name: "Pankaj Bhalala", jira: ["Pankaj Bhalala"], github: ["pankajsoftyoi"] },
-  { name: "Shubham", jira: [], github: ["shubham-1211"] },
+  { name: "Shubham Rajput", jira: ["Shubham Rajput"], github: ["shubham-1211"] },
 ];
 
 /**
- * The board, in the order work moves through it. A move to an earlier status
- * than the one it left is a step backwards; a step backwards out of review or
- * later is a bounce. Statuses not listed are placed by their Jira category.
+ * The board, in the order work moves through it. Statuses not listed are
+ * placed by their Jira category.
  */
 export const WORKFLOW = [
   "Requested",
   "Ready For Development",
   "In Development",
+  "UAT",
   "In Review",
   "Ready for Deployed",
   "Live",
 ];
 
-/** Rank at which work is in QA. Leaving here (or later) for below it is a bounce. */
-export const REVIEW_RANK = WORKFLOW.indexOf("In Review");
+/**
+ * Where QA starts. The developer hands over by moving a ticket here (or past
+ * it); a move from here or later back below it is a bounce.
+ */
+export const QA_STATUS = "UAT";
+export const REVIEW_RANK = WORKFLOW.indexOf(QA_STATUS);
+
+/**
+ * Shipped means Live, not Jira's "done" category — Ready for Deployed is in
+ * that category too, and a ticket waiting on a deploy has not reached anyone.
+ */
+export const SHIPPED_STATUS = "Live";
+export const SHIPPED_RANK = WORKFLOW.indexOf(SHIPPED_STATUS);
 
 /**
  * How long a high-priority ticket may sit in one status before it is called

@@ -1,6 +1,6 @@
 // Reads the Jira Cloud REST API and keeps only what the metrics use.
 
-import { FETCH_DAYS } from "./config";
+import { FETCH_DAYS, SHIPPED_STATUS } from "./config";
 
 export type StatusCategory = "new" | "indeterminate" | "done";
 
@@ -25,6 +25,7 @@ export type JiraIssue = {
   url: string;
   /** Oldest first. */
   history: JiraChange[];
+  comments: { at: number; by: string | null }[];
 };
 
 export type JiraData = {
@@ -33,7 +34,7 @@ export type JiraData = {
   categories: Record<string, StatusCategory>;
 };
 
-const FIELDS = ["summary", "status", "priority", "assignee", "issuetype", "project", "created"];
+const FIELDS = ["summary", "status", "priority", "assignee", "issuetype", "project", "created", "comment"];
 const TRACKED = new Set(["status", "priority", "assignee"]);
 
 function config() {
@@ -71,6 +72,21 @@ type RawHistory = {
   author?: { displayName?: string };
   items: { field: string; fromString: string | null; toString: string | null }[];
 };
+
+type RawComment = { created: string; author?: { displayName?: string } };
+
+async function allComments(id: string): Promise<RawComment[]> {
+  const all: RawComment[] = [];
+  for (let startAt = 0; ; ) {
+    const page = await call<{ comments: RawComment[]; total: number }>(
+      `/rest/api/3/issue/${id}/comment?startAt=${startAt}&maxResults=100`
+    );
+    all.push(...page.comments);
+    startAt += page.comments.length;
+    if (startAt >= page.total || page.comments.length === 0) break;
+  }
+  return all;
+}
 
 function compactHistory(histories: RawHistory[]): JiraChange[] {
   const out: JiraChange[] = [];
@@ -144,10 +160,11 @@ export async function fetchJira(): Promise<JiraData> {
   const categories: Record<string, StatusCategory> = {};
   for (const s of statuses) categories[s.name] = s.statusCategory.key;
 
-  // Everything touched in the widest window, plus anything still open however
+  // Everything touched in the widest window, plus anything not yet live however
   // old — a ticket nobody has touched in three months is exactly what the
-  // stuck list is for.
-  const jql = `updated >= -${FETCH_DAYS}d OR statusCategory != Done ORDER BY updated DESC`;
+  // stuck list is for. Not "statusCategory != Done": Ready for Deployed is in
+  // that category, and a ticket parked there has not shipped.
+  const jql = `updated >= -${FETCH_DAYS}d OR status != "${SHIPPED_STATUS}" ORDER BY updated DESC`;
   type Raw = {
     id: string;
     key: string;
@@ -159,6 +176,7 @@ export async function fetchJira(): Promise<JiraData> {
       issuetype: { name: string };
       project: { key: string };
       created: string;
+      comment?: { total: number; comments: RawComment[] };
     };
   };
   const raw: Raw[] = [];
@@ -172,6 +190,14 @@ export async function fetchJira(): Promise<JiraData> {
   } while (nextPageToken);
 
   const logs = await changelogs(raw.map((r) => r.id));
+
+  // Search returns a page of comments per issue; the few with more are read in full.
+  const comments = new Map<string, RawComment[]>();
+  for (const r of raw) {
+    const c = r.fields.comment;
+    if (c && c.total > c.comments.length) comments.set(r.id, await allComments(r.id));
+    else comments.set(r.id, c?.comments ?? []);
+  }
 
   const issues = raw.map((r): JiraIssue => {
     const f = r.fields;
@@ -188,6 +214,10 @@ export async function fetchJira(): Promise<JiraData> {
       created: Date.parse(f.created),
       url: `${c.base}/browse/${r.key}`,
       history: logs.get(r.id) ?? [],
+      comments: (comments.get(r.id) ?? []).map((c) => ({
+        at: Date.parse(c.created),
+        by: c.author?.displayName ?? null,
+      })),
     };
   });
 
