@@ -26,6 +26,12 @@ export default async function MembersPage() {
         </Link>{" "}
         — everything we said in Slack, kept past the 90-day cutoff.
       </p>
+      <p className="mt-2 max-w-2xl text-muted-foreground">
+        <Link href="/members/engineering" className="underline underline-offset-4 hover:text-foreground">
+          Engineering
+        </Link>{" "}
+        — who is closing what in Jira and GitHub, what bounces back from QA, and what is stuck.
+      </p>
       <DocumentsArea />
       <BootstrapperTable />
       {session && <LanternflySection me={{ sub: session.sub, name: session.name }} />}
