@@ -319,7 +319,17 @@ function Method({ m }: { m: Metrics }) {
           People are matched across Jira and GitHub by the list in <code>lib/eng/config.ts</code>; anyone not in it
           appears under the name the source used.
         </li>
+        <li>
+          A status move undone within five minutes is treated as a slip and ignored — In Review → Live → UAT in three
+          seconds did not ship anything.
+        </li>
         <li>These show activity, not the value of it.</li>
+        {m.jira && (
+          <li>
+            Read from Jira: {m.read.tickets} tickets, {m.read.statusChanges} status changes, {m.read.ticketComments}{" "}
+            comments.
+          </li>
+        )}
       </ul>
     </details>
   );

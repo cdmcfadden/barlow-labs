@@ -7,6 +7,27 @@ import type { JiraData, JiraIssue, StatusCategory } from "./jira";
 
 const DAY = 86_400_000;
 
+/**
+ * A status move undone this quickly was a slip, not an event: YOOVA-94 went
+ * In Review → Live → UAT inside three seconds. Counting it would ship and
+ * reopen a ticket that never reached anyone.
+ */
+const SLIP_MS = 5 * 60_000;
+
+/** Status moves with slips folded out: A→B then B→C moments later reads as A→C. */
+export function withoutSlips(history: JiraIssue["history"]): JiraIssue["history"] {
+  const status = history.filter((h) => h.field === "status");
+  const kept: typeof status = [];
+  for (const m of status) {
+    const prev = kept.at(-1);
+    if (prev && prev.to === m.from && m.at - prev.at < SLIP_MS) {
+      kept.pop();
+      if (prev.from !== m.to) kept.push({ ...m, from: prev.from });
+    } else kept.push(m);
+  }
+  return [...history.filter((h) => h.field !== "status"), ...kept].sort((a, b) => a.at - b.at);
+}
+
 export type IssueRef = {
   key: string;
   summary: string;
@@ -76,6 +97,8 @@ export type Metrics = {
   stuck: Stuck[];
   projects: { key: string; created: number; shipped: number; open: number; openHigh: number }[];
   repos: { name: string; commits: number; prsMerged: number }[];
+  /** What was read, so an empty chart can be told from an empty source. */
+  read: { tickets: number; statusChanges: number; ticketComments: number };
 };
 
 function median(xs: number[]): number | null {
@@ -225,9 +248,12 @@ export function computeMetrics(
     return p;
   };
 
-  for (const issue of jira?.issues ?? []) {
+  let statusChanges = 0;
+  for (const raw of jira?.issues ?? []) {
+    const issue = { ...raw, history: withoutSlips(raw.history) };
     const proj = project(issue.project);
     const statusMoves = issue.history.filter((h) => h.field === "status");
+    statusChanges += statusMoves.length;
 
     if (inWindow(issue.created)) {
       created++;
@@ -429,5 +455,10 @@ export function computeMetrics(
     stuck: stuck.sort((a, b) => priorityOrder(a.issue.priority) - priorityOrder(b.issue.priority) || b.days - a.days),
     projects: [...projects.values()].filter((p) => p.created + p.shipped + p.open > 0).sort((a, b) => b.open - a.open),
     repos: [...repos.values()].sort((a, b) => b.commits + b.prsMerged - (a.commits + a.prsMerged)),
+    read: {
+      tickets: jira?.issues.length ?? 0,
+      statusChanges,
+      ticketComments: (jira?.issues ?? []).reduce((a, i) => a + i.comments.length, 0),
+    },
   };
 }

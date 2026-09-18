@@ -68,12 +68,23 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 type RawHistory = {
-  created: string;
+  /** An ISO string from the per-issue endpoint; epoch ms from the bulk one. */
+  created: string | number;
   author?: { displayName?: string };
   items: { field: string; fromString: string | null; toString: string | null }[];
 };
 
 type RawComment = { created: string; author?: { displayName?: string } };
+
+/**
+ * Jira is not consistent about time: most endpoints send ISO strings, the bulk
+ * changelog sends epoch milliseconds. Date.parse(number) is NaN, and a NaN
+ * falls outside every window, so reading one as the other silently zeroes
+ * every status-based count on the page.
+ */
+function toMs(v: string | number): number {
+  return typeof v === "number" ? v : /^\d+$/.test(v) ? Number(v) : Date.parse(v);
+}
 
 async function allComments(id: string): Promise<RawComment[]> {
   const all: RawComment[] = [];
@@ -94,7 +105,7 @@ function compactHistory(histories: RawHistory[]): JiraChange[] {
     for (const item of h.items) {
       if (!TRACKED.has(item.field)) continue;
       out.push({
-        at: Date.parse(h.created),
+        at: toMs(h.created),
         by: h.author?.displayName ?? null,
         field: item.field as JiraChange["field"],
         from: item.fromString,
@@ -102,7 +113,7 @@ function compactHistory(histories: RawHistory[]): JiraChange[] {
       });
     }
   }
-  return out.sort((a, b) => a.at - b.at);
+  return out.filter((c) => Number.isFinite(c.at)).sort((a, b) => a.at - b.at);
 }
 
 /**
@@ -215,7 +226,7 @@ export async function fetchJira(): Promise<JiraData> {
       url: `${c.base}/browse/${r.key}`,
       history: logs.get(r.id) ?? [],
       comments: (comments.get(r.id) ?? []).map((c) => ({
-        at: Date.parse(c.created),
+        at: toMs(c.created),
         by: c.author?.displayName ?? null,
       })),
     };
