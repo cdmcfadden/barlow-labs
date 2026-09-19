@@ -1,6 +1,6 @@
 // Reads the Jira Cloud REST API and keeps only what the metrics use.
 
-import { FETCH_DAYS, SHIPPED_STATUS } from "./config";
+import { FETCH_DAYS, JIRA_PROJECTS, SHIPPED_STATUS } from "./config";
 
 export type StatusCategory = "new" | "indeterminate" | "done";
 
@@ -175,7 +175,9 @@ export async function fetchJira(): Promise<JiraData> {
   // old — a ticket nobody has touched in three months is exactly what the
   // stuck list is for. Not "statusCategory != Done": Ready for Deployed is in
   // that category, and a ticket parked there has not shipped.
-  const jql = `updated >= -${FETCH_DAYS}d OR status != "${SHIPPED_STATUS}" ORDER BY updated DESC`;
+  const scope = `project in (${JIRA_PROJECTS.map((p) => `"${p}"`).join(", ")})`;
+  const jql =
+    `${scope} AND (updated >= -${FETCH_DAYS}d OR status != "${SHIPPED_STATUS}") ORDER BY updated DESC`;
   type Raw = {
     id: string;
     key: string;

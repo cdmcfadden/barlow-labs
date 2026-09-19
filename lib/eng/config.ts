@@ -8,12 +8,13 @@
  */
 export const PEOPLE: { name: string; jira: string[]; github: string[] }[] = [
   { name: "Chris McFadden", jira: ["Chris McFadden"], github: ["cdmcfadden"] },
-  { name: "Parth Shah", jira: ["Parth Shah"], github: [] },
+  { name: "Parth Shah", jira: ["Parth Shah"], github: ["yogkarma"] },
   { name: "Dinesh Vaghasia", jira: ["Dinesh Vaghasia"], github: [] },
   { name: "Monil", jira: ["Monil"], github: ["moniljainn18", "Monil"] },
   { name: "Vishal Gajera", jira: ["vishal.gajera"], github: ["vishal-softyoi"] },
   { name: "Pankaj Bhalala", jira: ["Pankaj Bhalala"], github: ["pankajsoftyoi"] },
   { name: "Shubham Rajput", jira: ["Shubham Rajput"], github: ["shubham-1211"] },
+  { name: "Nenaram", jira: [], github: ["Nenaram"] },
 ];
 
 /**
@@ -52,6 +53,21 @@ export const STALE_AFTER_DAYS: Record<string, number> = {
   Highest: 3,
   High: 7,
 };
+
+/**
+ * What the page is about: the Barlow Labs Jira project and the two products
+ * being built in it. Both can be widened by env (JIRA_PROJECTS, GITHUB_REPOS)
+ * without a deploy.
+ */
+export const JIRA_PROJECTS = (process.env.JIRA_PROJECTS ?? "YOOVA")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+export const GITHUB_REPOS = (process.env.GITHUB_REPOS ?? "cdmcfadden/house360,cdmcfadden/yoova-mobile")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export const WINDOWS = [7, 30, 90] as const;
 export const DEFAULT_WINDOW = 30;

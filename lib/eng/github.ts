@@ -1,11 +1,13 @@
 // Reads GitHub's GraphQL API and keeps only what the metrics use.
 
-import { FETCH_DAYS } from "./config";
+import { FETCH_DAYS, GITHUB_REPOS } from "./config";
 
-export type Commit = { repo: string; author: string; at: number };
+export type Commit = { repo: string; author: string; at: number; oid: string };
 
 export type PullRequest = {
   repo: string;
+  /** Commits on the PR's branch; how work that never lands on main is counted. */
+  commits: Commit[];
   number: number;
   title: string;
   url: string;
@@ -39,34 +41,23 @@ async function gql<T>(query: string, variables: Record<string, unknown>): Promis
   return body.data;
 }
 
-/**
- * GITHUB_REPOS ("owner/name,owner/name") pins the list. Without it, every repo
- * the token can see that was pushed to in the window — so a new product shows
- * up without anyone remembering to add it here.
- */
-async function repos(since: string): Promise<string[]> {
-  const pinned = process.env.GITHUB_REPOS?.split(",").map((s) => s.trim()).filter(Boolean);
-  if (pinned?.length) return pinned;
-
-  const data = await gql<{
-    viewer: { repositories: { nodes: { nameWithOwner: string; pushedAt: string | null; isFork: boolean }[] } };
-  }>(
-    `query {
-      viewer {
-        repositories(first: 100, orderBy: { field: PUSHED_AT, direction: DESC },
-                     ownerAffiliations: [OWNER, COLLABORATOR, ORGANIZATION_MEMBER]) {
-          nodes { nameWithOwner pushedAt isFork }
-        }
-      }
-    }`,
-    {}
-  );
-  return data.viewer.repositories.nodes
-    .filter((r) => !r.isFork && r.pushedAt && r.pushedAt >= since)
-    .map((r) => r.nameWithOwner);
-}
-
 type Actor = { login: string } | null;
+
+type CommitNode = {
+  oid: string;
+  authoredDate: string;
+  parents: { totalCount: number };
+  author: { name: string | null; user: Actor } | null;
+};
+
+function toCommit(repo: string, c: CommitNode): Commit {
+  return {
+    repo,
+    oid: c.oid,
+    author: c.author?.user?.login ?? c.author?.name ?? "unknown",
+    at: Date.parse(c.authoredDate),
+  };
+}
 
 async function commits(repo: string, since: string): Promise<Commit[]> {
   const [owner, name] = repo.split("/");
@@ -79,11 +70,7 @@ async function commits(repo: string, since: string): Promise<Commit[]> {
           target: {
             history: {
               pageInfo: { hasNextPage: boolean; endCursor: string };
-              nodes: {
-                authoredDate: string;
-                parents: { totalCount: number };
-                author: { name: string | null; user: Actor } | null;
-              }[];
+              nodes: CommitNode[];
             };
           };
         } | null;
@@ -95,7 +82,7 @@ async function commits(repo: string, since: string): Promise<Commit[]> {
           defaultBranchRef { target { ... on Commit {
             history(since: $since, first: 100, after: $after) {
               pageInfo { hasNextPage endCursor }
-              nodes { authoredDate parents { totalCount } author { name user { login } } }
+              nodes { oid authoredDate parents { totalCount } author { name user { login } } }
             }
           } } }
         }
@@ -107,14 +94,57 @@ async function commits(repo: string, since: string): Promise<Commit[]> {
     for (const c of history.nodes) {
       // A merge commit is the PR landing, which the PR already counts.
       if (c.parents.totalCount > 1) continue;
-      out.push({
-        repo,
-        author: c.author?.user?.login ?? c.author?.name ?? "unknown",
-        at: Date.parse(c.authoredDate),
-      });
+      out.push(toCommit(repo, c));
     }
     if (!history.pageInfo.hasNextPage) break;
     after = history.pageInfo.endCursor;
+  }
+  return out;
+}
+
+/**
+ * Every branch head's recent history in one query. Lovable pushes branches
+ * with no pull request, so neither main nor the PR list sees that work.
+ * Branches with more than 100 commits in the window are cut off there; main,
+ * which is the one that gets them, is read separately and in full.
+ */
+async function branchCommits(repo: string, since: string): Promise<Commit[]> {
+  const [owner, name] = repo.split("/");
+  const out: Commit[] = [];
+  let after: string | null = null;
+  for (;;) {
+    type Page = {
+      repository: {
+        refs: {
+          pageInfo: { hasNextPage: boolean; endCursor: string };
+          nodes: { target: { history: { nodes: CommitNode[] } } | null }[];
+        };
+      };
+    };
+    const data: Page = await gql<Page>(
+      `query($owner: String!, $name: String!, $since: GitTimestamp!, $after: String) {
+        repository(owner: $owner, name: $name) {
+          refs(refPrefix: "refs/heads/", first: 50, after: $after) {
+            pageInfo { hasNextPage endCursor }
+            nodes {
+              target { ... on Commit {
+                history(since: $since, first: 100) {
+                  nodes { oid authoredDate parents { totalCount } author { name user { login } } }
+                }
+              } }
+            }
+          }
+        }
+      }`,
+      { owner, name, since, after }
+    );
+    for (const ref of data.repository.refs.nodes) {
+      for (const c of ref.target?.history.nodes ?? []) {
+        if (c.parents.totalCount <= 1) out.push(toCommit(repo, c));
+      }
+    }
+    if (!data.repository.refs.pageInfo.hasNextPage) break;
+    after = data.repository.refs.pageInfo.endCursor;
   }
   return out;
 }
@@ -139,6 +169,7 @@ async function pulls(repo: string, since: string): Promise<PullRequest[]> {
             closedAt: string | null;
             author: Actor;
             reviews: { nodes: { author: Actor; submittedAt: string | null }[] };
+            commits: { nodes: { commit: CommitNode }[] };
           }[];
         };
       };
@@ -152,6 +183,7 @@ async function pulls(repo: string, since: string): Promise<PullRequest[]> {
               number title url createdAt updatedAt mergedAt closedAt
               author { login }
               reviews(first: 50) { nodes { author { login } submittedAt } }
+              commits(last: 100) { nodes { commit { oid authoredDate parents { totalCount } author { name user { login } } } } }
             }
           }
         }
@@ -167,6 +199,7 @@ async function pulls(repo: string, since: string): Promise<PullRequest[]> {
       }
       out.push({
         repo,
+        commits: p.commits.nodes.map((n) => n.commit).filter((c) => c.parents.totalCount <= 1).map((c) => toCommit(repo, c)),
         number: p.number,
         title: p.title,
         url: p.url,
@@ -187,16 +220,26 @@ async function pulls(repo: string, since: string): Promise<PullRequest[]> {
 
 export async function fetchGitHub(): Promise<GitHubData> {
   const since = new Date(Date.now() - FETCH_DAYS * 86_400_000).toISOString();
-  const list = await repos(since);
+  const list = GITHUB_REPOS;
   const perRepo = await Promise.all(
     list.map(async (repo) => {
-      const [c, p] = await Promise.all([commits(repo, since), pulls(repo, since)]);
-      return { c, p };
+      const [c, b, p] = await Promise.all([commits(repo, since), branchCommits(repo, since), pulls(repo, since)]);
+      return { c: [...c, ...b], p };
     })
   );
+
+  // Main alone misses two thirds of the work here: squash-merged branches and
+  // branches still open. Main, every branch head and every pull request are
+  // read, then deduplicated by sha.
+  const byOid = new Map<string, Commit>();
+  for (const c of perRepo.flatMap((r) => r.c)) byOid.set(c.oid, c);
+  for (const pr of perRepo.flatMap((r) => r.p)) {
+    for (const c of pr.commits) if (Date.parse(since) <= c.at) byOid.set(c.oid, c);
+  }
+
   return {
     repos: list,
-    commits: perRepo.flatMap((r) => r.c),
+    commits: [...byOid.values()],
     pulls: perRepo.flatMap((r) => r.p),
   };
 }

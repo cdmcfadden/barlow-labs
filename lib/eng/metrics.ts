@@ -89,7 +89,7 @@ export type Metrics = {
     commits: number;
     prsMerged: number;
   };
-  series: { start: number; end: number; created: number; shipped: number }[];
+  series: { start: number; end: number; created: number; shipped: number; backlog: number }[];
   openByStatus: { status: string; count: number }[];
   people: PersonRow[];
   bots: { name: string; commits: number; prs: number }[];
@@ -225,7 +225,7 @@ export function computeMetrics(
   const binCount = Math.ceil((days * DAY) / binSize);
   const series = Array.from({ length: binCount }, (_, i) => {
     const end = now - (binCount - 1 - i) * binSize;
-    return { start: Math.max(start, end - binSize), end, created: 0, shipped: 0 };
+    return { start: Math.max(start, end - binSize), end, created: 0, shipped: 0, backlog: 0 };
   });
   const bin = (t: number) => series.find((b) => t > b.start && t <= b.end) ?? (t === start ? series[0] : undefined);
 
@@ -249,6 +249,9 @@ export function computeMetrics(
   };
 
   let statusChanges = 0;
+  // Created/closed pairs, for the backlog line: how many tickets were open at
+  // the end of each bin.
+  const lifetimes: { created: number; closed: number | null }[] = [];
   for (const raw of jira?.issues ?? []) {
     const issue = { ...raw, history: withoutSlips(raw.history) };
     const proj = project(issue.project);
@@ -331,6 +334,13 @@ export function computeMetrics(
       }
     }
 
+    lifetimes.push({
+      created: issue.created,
+      // Off the board — Live, or a done status that is not on it, like Won't
+      // Do — from the moment it last got there.
+      closed: rank(issue.status) >= shippedRank ? statusMoves.at(-1)?.at ?? issue.created : null,
+    });
+
     // Open: anything on the board short of Live. Ready for Deployed is open —
     // passed QA, but not in anyone's hands yet.
     const open = !isShipped(issue.status) && rank(issue.status) < shippedRank;
@@ -351,6 +361,10 @@ export function computeMetrics(
         }
       }
     }
+  }
+
+  for (const b of series) {
+    b.backlog = lifetimes.filter((l) => l.created <= b.end && (l.closed === null || l.closed > b.end)).length;
   }
 
   // GitHub.

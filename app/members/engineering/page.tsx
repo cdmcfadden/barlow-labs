@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DEFAULT_WINDOW, WINDOWS } from "@/lib/eng/config";
+import { DEFAULT_WINDOW, GITHUB_REPOS, JIRA_PROJECTS, WINDOWS } from "@/lib/eng/config";
 import { loadEngineering } from "@/lib/eng/load";
 import { computeMetrics, type IssueRef, type Metrics } from "@/lib/eng/metrics";
 import FlowChart from "./FlowChart";
@@ -31,7 +31,8 @@ export default async function EngineeringPage({
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Engineering</h1>
           <p className="mt-2 text-muted-foreground">
-            Who is doing what, what is moving, and what is stuck — from Jira and GitHub.
+            Who is doing what, what is moving, and what is stuck — the {JIRA_PROJECTS.join(", ")} Jira{" "}
+            {JIRA_PROJECTS.length > 1 ? "projects" : "project"} and {GITHUB_REPOS.map((r) => r.split("/")[1]).join(" + ")}.
             {Number.isFinite(asOf) && <> Data as of {ago(now - asOf)}; refreshes hourly.</>}
           </p>
         </div>
@@ -57,14 +58,17 @@ export default async function EngineeringPage({
       <Tiles m={m} />
 
       {m.jira && (
-        <Panel title="Tickets created and shipped to Live" note={days <= 7 ? "Per day" : "Per week"}>
+        <Panel
+          title="Tickets created and shipped to Live"
+          note={`${days <= 7 ? "Per day" : "Per week"}. The backlog line is every ticket open at the end of that period — it climbs whenever more come in than go out.`}
+        >
           <FlowChart series={m.series} daily={days <= 7} />
           <details className="mt-3 text-sm text-muted-foreground">
             <summary className="cursor-pointer hover:text-foreground">Show as a table</summary>
             <Table
-              head={["Period", "Created", "Shipped"]}
-              rows={m.series.map((b) => [range(b.start, b.end), b.created, b.shipped])}
-              numeric={[1, 2]}
+              head={["Period", "Created", "Shipped", "Backlog"]}
+              rows={m.series.map((b) => [range(b.start, b.end), b.created, b.shipped, b.backlog])}
+              numeric={[1, 2, 3]}
             />
           </details>
         </Panel>
@@ -311,8 +315,9 @@ function Method({ m }: { m: Metrics }) {
           time from the ticket being created.
         </li>
         <li>
-          <strong className="text-foreground">Commits</strong> are on each repo&apos;s default branch, excluding merge
-          commits. Repos are every one pushed to in the last 90 days. Work done through Lovable is committed by its bot,
+          <strong className="text-foreground">Commits</strong> exclude merge commits, and count each sha once across
+          the main branch and every pull request branch — main alone misses two thirds of the work here. Commits on a
+          branch that never opened a pull request are not counted. Work done through Lovable is committed by its bot,
           which does not record who asked for it.
         </li>
         <li>
