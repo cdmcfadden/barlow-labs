@@ -8,6 +8,7 @@ const PRODUCTS = [
   { href: "/mothersd", label: "mothersd.ai" },
   { href: "/spkeasy", label: "Speak Easy" },
   { href: "/deeptunnel", label: "DeepTunnel" },
+  { href: "/placemont", label: "PlaceMont" },
 ];
 
 export default function ProductsMenu() {
