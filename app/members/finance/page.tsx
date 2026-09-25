@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { loadFinance } from "@/lib/finance/load";
-import { buildReport, type Report, type Week } from "@/lib/finance/report";
+import { buildReport, isInternal, type Report, type Week } from "@/lib/finance/report";
 import WeeklyChart from "./WeeklyChart";
 
 export const metadata = { title: "Finance | Barlow Labs" };
@@ -46,7 +46,7 @@ export default async function FinancePage({
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Finance</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Weekly spending from the Mercury account. Money moved between our own Mercury accounts is left out;
+            Weekly spending from the Mercury account. Money moved between our own Mercury accounts, including card payments, is left out;
             fees, card charges, and payments to anyone else count.
             {source.data?.lastSync && <> Synced {ago(Date.now() - Date.parse(source.data.lastSync))}; the cron runs every Monday morning.</>}
           </p>
@@ -102,7 +102,7 @@ export default async function FinancePage({
                   {t.counterparty_name || t.bank_description || "—"}
                 </a>,
                 t.category_name || t.mercury_category || <span className="text-muted-foreground">—</span>,
-                <Status key="s" value={t.status} kind={t.kind} />,
+                <Status key="s" value={t.status} internal={isInternal(t)} />,
                 <span key="a" className={t.amount > 0 ? "text-primary" : ""}>{signedMoney(t.amount)}</span>,
               ])}
               numeric={[4]}
@@ -172,7 +172,7 @@ function Tiles({ report, week, previous }: { report: Report; week: Week; previou
     },
     { label: "Came in", value: money(week.income), sub: "deposits, refunds, interest" },
     { label: "Net", value: signedMoney(week.net), sub: week.pendingSpend ? `${money(week.pendingSpend)} still pending` : "all settled" },
-    { label: "Cash now", value: money(report.cash), sub: `${report.balanceHistory.length} balance snapshots` },
+    { label: "Cash now", value: money(report.cash), sub: `${report.balanceHistory.length} balance snapshot${report.balanceHistory.length === 1 ? "" : "s"}` },
     {
       label: "Average weekly spend",
       value: report.avgWeeklySpend === null ? "—" : money(report.avgWeeklySpend),
@@ -197,8 +197,8 @@ function Tiles({ report, week, previous }: { report: Report; week: Week; previou
   );
 }
 
-function Status({ value, kind }: { value: string; kind: string }) {
-  const label = kind === "internalTransfer" || kind === "treasuryTransfer" ? "internal" : value;
+function Status({ value, internal }: { value: string; internal: boolean }) {
+  const label = internal ? "internal" : value;
   const tone =
     label === "internal" || value === "pending" ? "text-muted-foreground" : value === "sent" ? "" : "text-accent";
   return <span className={tone}>{label}</span>;
@@ -234,7 +234,7 @@ function Method() {
         <li>A week is Monday through Sunday in Pacific time, by the date Mercury created the transaction.</li>
         <li>
           <strong className="text-foreground">Spent</strong> is every outgoing amount except transfers between our own
-          Mercury accounts. Pending card charges are included, since they will settle; cancelled, failed, reversed, and
+          Mercury accounts, card payments included. Pending card charges are included, since they will settle; cancelled, failed, reversed, and
           blocked ones are not.
         </li>
         <li>

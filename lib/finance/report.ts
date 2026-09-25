@@ -56,8 +56,16 @@ export function weekStart(key: string): string {
   return addDays(key, dow === 0 ? -6 : 1 - dow);
 }
 
+/** Paying our own Mercury card from checking shows up as a debit on one
+ * account and a credit on the other; neither is money leaving the company. */
+const OWN_ACCOUNT = /^Mercury (Checking|Savings|Credit|Treasury)\b/i;
+
+export function isInternal(t: TxnRow): boolean {
+  return INTERNAL.has(t.kind) || OWN_ACCOUNT.test(t.counterparty_name);
+}
+
 function counts(t: TxnRow): boolean {
-  return !INTERNAL.has(t.kind) && !VOID.has(t.status);
+  return !isInternal(t) && !VOID.has(t.status);
 }
 
 function roll(lines: Map<string, Line>, name: string, amount: number) {
