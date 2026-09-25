@@ -1,6 +1,16 @@
 {
   "crons": [
-    { "path": "/api/archive/sync", "schedule": "15 8 * * *" },
-    { "path": "/api/archive/summarize", "schedule": "45 8 * * *" }
+    {
+      "path": "/api/archive/sync",
+      "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/archive/summarize",
+      "schedule": "45 8 * * *"
+    },
+    {
+      "path": "/api/finance/sync",
+      "schedule": "0 14 * * 1"
+    }
   ]
 }

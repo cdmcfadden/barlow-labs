@@ -32,6 +32,12 @@ export default async function MembersPage() {
         </Link>{" "}
         — who is closing what in Jira and GitHub, what bounces back from QA, and what is stuck.
       </p>
+      <p className="mt-2 max-w-2xl text-muted-foreground">
+        <Link href="/members/finance" className="underline underline-offset-4 hover:text-foreground">
+          Finance
+        </Link>{" "}
+        — weekly spending from the Mercury account: what went out, to whom, and how long the cash lasts.
+      </p>
       <DocumentsArea />
       <BootstrapperTable />
       {session && <LanternflySection me={{ sub: session.sub, name: session.name }} />}
