@@ -38,6 +38,12 @@ export default async function MembersPage() {
         </Link>{" "}
         — weekly spending from the Mercury account: what went out, to whom, and how long the cash lasts.
       </p>
+      <p className="mt-2 max-w-2xl text-muted-foreground">
+        <Link href="/members/surveys" className="underline underline-offset-4 hover:text-foreground">
+          Surveys
+        </Link>{" "}
+        — customer surveys with public links, ranked results and every response.
+      </p>
       <DocumentsArea />
       <BootstrapperTable />
       {session && <LanternflySection me={{ sub: session.sub, name: session.name }} />}
