@@ -46,7 +46,13 @@ async function readFinance(): Promise<FinanceData> {
   const sql = getSql();
   const [accounts, transactions, snapshots] = (await Promise.all([
     sql`SELECT * FROM mercury_accounts WHERE status = 'active' ORDER BY name`,
-    sql`SELECT * FROM mercury_transactions WHERE created_at > now() - interval '120 days' ORDER BY created_at DESC`,
+    // Whole Pacific-time months, so the month filter can reach back past the 13-week chart.
+    sql`
+      SELECT * FROM mercury_transactions
+      WHERE created_at >= (date_trunc('month', now() AT TIME ZONE 'America/Los_Angeles') - interval '12 months')
+        AT TIME ZONE 'America/Los_Angeles'
+      ORDER BY created_at DESC
+    `,
     sql`
       SELECT account_id, current_balance, taken_at FROM mercury_balance_snapshots
       WHERE taken_at > now() - interval '120 days' ORDER BY taken_at

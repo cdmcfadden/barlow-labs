@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 // Re-read this much history every run. Upserts are idempotent, so the overlap
 // only costs a few requests and lets pending card charges settle into their
 // final status and category.
-const LOOKBACK_DAYS = 120;
+const LOOKBACK_DAYS = 360;
 const BUDGET_MS = 45_000;
 const CHUNK = 200;
 

@@ -2,7 +2,7 @@ import type { Week } from "@/lib/finance/report";
 
 // Server-rendered SVG: paired bars per week, spend in the site's primary
 // orange and income in a muted tone, drawn to one shared scale.
-export default function WeeklyChart({ weeks, selected }: { weeks: Week[]; selected: string }) {
+export default function WeeklyChart({ weeks, selected }: { weeks: Week[]; selected: string[] }) {
   const W = 960;
   const H = 240;
   const pad = { l: 56, r: 12, t: 12, b: 28 };
@@ -34,7 +34,7 @@ export default function WeeklyChart({ weeks, selected }: { weeks: Week[]; select
       ))}
       {weeks.map((w, i) => {
         const cx = pad.l + slot * i + slot / 2;
-        const isSel = w.start === selected;
+        const isSel = selected.includes(w.start);
         return (
           <g key={w.start}>
             {isSel && (

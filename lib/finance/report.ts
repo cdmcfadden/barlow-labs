@@ -13,12 +13,13 @@ const VOID = new Set(["cancelled", "failed", "reversed", "blocked"]);
 
 export type Line = { name: string; amount: number; count: number };
 
-export type Week = {
-  /** Monday, YYYY-MM-DD in Pacific time. */
+/** A span of days rolled up into totals: a Monday-to-Sunday week or a calendar month. */
+export type Period = {
+  /** First day, YYYY-MM-DD in Pacific time (a Monday for weeks, the 1st for months). */
   start: string;
-  /** Sunday, YYYY-MM-DD. */
+  /** Last day, YYYY-MM-DD. */
   end: string;
-  /** True for the week containing today. */
+  /** True for the period containing today. */
   partial: boolean;
   spend: number;
   income: number;
@@ -30,8 +31,12 @@ export type Week = {
   transactions: TxnRow[];
 };
 
+export type Week = Period;
+export type Month = Period;
+
 export type Report = {
   weeks: Week[]; // newest first, includes the partial current week
+  months: Month[]; // newest first, includes the partial current month; only months the data fully covers
   cash: number;
   avgWeeklySpend: number | null; // last 4 completed weeks
   runwayWeeks: number | null;
@@ -79,8 +84,7 @@ function sorted(lines: Map<string, Line>): Line[] {
   return [...lines.values()].sort((a, b) => b.amount - a.amount);
 }
 
-function buildWeek(start: string, txns: TxnRow[], today: string): Week {
-  const end = addDays(start, 6);
+function buildPeriod(start: string, end: string, txns: TxnRow[], today: string): Period {
   const cats = new Map<string, Line>();
   const parties = new Map<string, Line>();
   let spend = 0;
@@ -113,6 +117,18 @@ function buildWeek(start: string, txns: TxnRow[], today: string): Week {
   };
 }
 
+/** "2026-09" → "2026-08". */
+function prevMonth(m: string): string {
+  const [y, mo] = m.split("-").map(Number);
+  return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, "0")}`;
+}
+
+/** Last day of a "YYYY-MM" month. */
+function monthEnd(m: string): string {
+  const [y, mo] = m.split("-").map(Number);
+  return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+}
+
 export function buildReport(data: FinanceData, now = new Date(), weekCount = 13): Report {
   const today = ptDate(now);
   const thisMonday = weekStart(today);
@@ -126,7 +142,22 @@ export function buildReport(data: FinanceData, now = new Date(), weekCount = 13)
   const weeks: Week[] = [];
   for (let i = 0; i < weekCount; i++) {
     const start = addDays(thisMonday, -7 * i);
-    weeks.push(buildWeek(start, byWeek.get(start) ?? [], today));
+    weeks.push(buildPeriod(start, addDays(start, 6), byWeek.get(start) ?? [], today));
+  }
+
+  // Months, back to the oldest one whose first day the stored data reaches.
+  // The sync only looks back so far, so an older month would be missing days.
+  const byMonth = new Map<string, TxnRow[]>();
+  let oldest = today;
+  for (const t of data.transactions) {
+    const key = ptDate(t.created_at);
+    if (key < oldest) oldest = key;
+    const month = key.slice(0, 7);
+    (byMonth.get(month) ?? byMonth.set(month, []).get(month)!).push(t);
+  }
+  const months: Month[] = [];
+  for (let m = today.slice(0, 7); m + "-01" >= oldest || m === today.slice(0, 7); m = prevMonth(m)) {
+    months.push(buildPeriod(m + "-01", monthEnd(m), byMonth.get(m) ?? [], today));
   }
 
   const completed = weeks.filter((w) => !w.partial).slice(0, 4);
@@ -145,7 +176,7 @@ export function buildReport(data: FinanceData, now = new Date(), weekCount = 13)
     .sort(([a], [b]) => (a < b ? -1 : 1))
     .map(([at, m]) => ({ at, total: round([...m.values()].reduce((a, b) => a + b, 0)) }));
 
-  return { weeks, cash, avgWeeklySpend, runwayWeeks, balanceHistory, today };
+  return { weeks, months, cash, avgWeeklySpend, runwayWeeks, balanceHistory, today };
 }
 
 const round = (n: number) => Math.round(n * 100) / 100;

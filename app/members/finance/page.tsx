@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, openSession } from "@/lib/session";
 import { loadFinance } from "@/lib/finance/load";
-import { buildReport, isInternal, type Report, type Week } from "@/lib/finance/report";
+import { buildReport, isInternal, type Period, type Report } from "@/lib/finance/report";
 import WeeklyChart from "./WeeklyChart";
 
 export const metadata = { title: "Finance | Barlow Labs" };
@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; synced?: string }>;
+  searchParams: Promise<{ week?: string; month?: string; synced?: string }>;
 }) {
   const session = await openSession((await cookies()).get(SESSION_COOKIE)?.value);
   const viewers = (process.env.FINANCE_VIEWERS ?? "")
@@ -35,9 +35,15 @@ export default async function FinancePage({
   const source = await loadFinance();
   const report = source.data ? buildReport(source.data) : null;
   const completed = report?.weeks.filter((w) => !w.partial) ?? [];
+  // ?month=2026-09 picks a calendar month; otherwise ?week= picks a week.
+  const month = report?.months.find((m) => m.start.slice(0, 7) === params.month) ?? null;
+  const periods = month ? report!.months : report?.weeks ?? [];
   const selected =
-    report?.weeks.find((w) => w.start === params.week) ?? completed[0] ?? report?.weeks[0] ?? null;
-  const previous = selected ? report!.weeks[report!.weeks.indexOf(selected) + 1] ?? null : null;
+    month ?? report?.weeks.find((w) => w.start === params.week) ?? completed[0] ?? report?.weeks[0] ?? null;
+  const previous = selected ? periods[periods.indexOf(selected) + 1] ?? null : null;
+  const unit = month ? "month" : "week";
+  // Weeks in the chart to shade: the one picked, or every week touching the month.
+  const shaded = report?.weeks.filter((w) => (month ? w.end >= month.start && w.start <= month.end : w === selected)) ?? [];
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-16">
@@ -66,14 +72,15 @@ export default async function FinancePage({
 
       {report && selected && (
         <>
-          <WeekNav report={report} selected={selected} />
-          <Tiles report={report} week={selected} previous={previous} />
+          <MonthNav report={report} selected={month} />
+          {!month && <WeekNav report={report} selected={selected} />}
+          <Tiles report={report} period={selected} previous={previous} unit={unit} />
 
           <Panel
             title="Spend and income by week"
             note="Bars are completed Monday-to-Sunday weeks in Pacific time; the hatched bar is this week so far."
           >
-            <WeeklyChart weeks={[...report.weeks].reverse()} selected={selected.start} />
+            <WeeklyChart weeks={[...report.weeks].reverse()} selected={shaded.map((w) => w.start)} />
           </Panel>
 
           <div className="mt-10 grid gap-6 md:grid-cols-2">
@@ -140,9 +147,9 @@ function Crumb() {
   );
 }
 
-function WeekNav({ report, selected }: { report: Report; selected: Week }) {
+function WeekNav({ report, selected }: { report: Report; selected: Period }) {
   return (
-    <nav className="mt-8 flex flex-wrap gap-1 rounded-md border p-0.5 text-sm" aria-label="Week">
+    <nav className="mt-3 flex flex-wrap gap-1 rounded-md border p-0.5 text-sm" aria-label="Week">
       {report.weeks.map((w) => (
         <Link
           key={w.start}
@@ -159,19 +166,41 @@ function WeekNav({ report, selected }: { report: Report; selected: Week }) {
   );
 }
 
-function Tiles({ report, week, previous }: { report: Report; week: Week; previous: Week | null }) {
-  const delta = previous && previous.spend > 0 ? (week.spend - previous.spend) / previous.spend : null;
+function MonthNav({ report, selected }: { report: Report; selected: Period | null }) {
+  const tab = (active: boolean) =>
+    `rounded px-2.5 py-1.5 transition-colors ${active ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`;
+  return (
+    <nav className="mt-8 flex flex-wrap gap-1 rounded-md border p-0.5 text-sm" aria-label="Month">
+      <Link href="/members/finance" aria-current={!selected ? "page" : undefined} className={tab(!selected)}>
+        By week
+      </Link>
+      {report.months.map((m) => (
+        <Link
+          key={m.start}
+          href={`/members/finance?month=${m.start.slice(0, 7)}`}
+          aria-current={m === selected ? "page" : undefined}
+          className={tab(m === selected)}
+        >
+          {m.partial ? "This month" : monthName(m.start)}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function Tiles({ report, period, previous, unit }: { report: Report; period: Period; previous: Period | null; unit: string }) {
+  const delta = previous && previous.spend > 0 ? (period.spend - previous.spend) / previous.spend : null;
   const tiles = [
     {
-      label: week.partial ? "Spent so far this week" : "Spent",
-      value: money(week.spend),
+      label: period.partial ? `Spent so far this ${unit}` : "Spent",
+      value: money(period.spend),
       sub:
         delta === null
-          ? `${week.count} transactions`
-          : `${delta >= 0 ? "+" : ""}${Math.round(delta * 100)}% vs prior week (${money(previous!.spend)})`,
+          ? `${period.count} transactions`
+          : `${delta >= 0 ? "+" : ""}${Math.round(delta * 100)}% vs prior ${unit} (${money(previous!.spend)})`,
     },
-    { label: "Came in", value: money(week.income), sub: "deposits, refunds, interest" },
-    { label: "Net", value: signedMoney(week.net), sub: week.pendingSpend ? `${money(week.pendingSpend)} still pending` : "all settled" },
+    { label: "Came in", value: money(period.income), sub: "deposits, refunds, interest" },
+    { label: "Net", value: signedMoney(period.net), sub: period.pendingSpend ? `${money(period.pendingSpend)} still pending` : "all settled" },
     { label: "Cash now", value: money(report.cash), sub: `${report.balanceHistory.length} balance snapshot${report.balanceHistory.length === 1 ? "" : "s"}` },
     {
       label: "Average weekly spend",
@@ -262,7 +291,7 @@ function Panel({ title, note, tight, children }: { title: string; note?: string;
 }
 
 function Table({ head, rows, numeric = [] }: { head: string[]; rows: React.ReactNode[][]; numeric?: number[] }) {
-  if (!rows.length) return <p className="text-sm text-muted-foreground">Nothing in this week.</p>;
+  if (!rows.length) return <p className="text-sm text-muted-foreground">Nothing in this period.</p>;
   const align = (i: number) => (numeric.includes(i) ? "text-right tabular-nums" : "");
   return (
     <div className="overflow-x-auto">
@@ -303,7 +332,12 @@ const day = (iso: string) =>
     timeZone: "America/Los_Angeles",
   });
 const shortDay = (key: string) => day(key);
-const range = (w: Week) => `${day(w.start)} – ${day(w.end)}`;
+const monthName = (key: string) =>
+  new Date(key + "T12:00:00Z").toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+const range = (p: Period) =>
+  p.start.endsWith("-01") && p.end.slice(0, 7) === p.start.slice(0, 7) && p.end.slice(8) >= "28"
+    ? new Date(p.start + "T12:00:00Z").toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
+    : `${day(p.start)} – ${day(p.end)}`;
 function runway(weeks: number) {
   return weeks >= 104 ? `${(weeks / 52).toFixed(1)} yrs` : weeks >= 12 ? `${(weeks / 4.33).toFixed(1)} mo` : `${weeks} wks`;
 }
