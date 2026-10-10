@@ -48,6 +48,14 @@ export default function YoovaPage() {
           One place for all your home documents, scheduled maintenance, and recommended vendors.
           Built for the way you actually live in your home.
         </p>
+        <div className="mt-8">
+          <a
+            href="https://yoova.com"
+            className="inline-flex items-center rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            Visit yoova.com →
+          </a>
+        </div>
       </section>
 
       <section className="py-10">
