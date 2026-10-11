@@ -73,7 +73,7 @@ export default function YoovaPage() {
         </div>
       </section>
 
-      <section id="text" className="py-12 border-t border-border/60">
+      <section id="text" className="scroll-mt-16 py-12 border-t border-border/60">
         <div className="mx-auto max-w-xl">
           <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Text yoova</h2>
           <p className="mt-3 text-muted-foreground leading-relaxed">
