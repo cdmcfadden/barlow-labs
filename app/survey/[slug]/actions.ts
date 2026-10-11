@@ -105,7 +105,7 @@ async function notify(
     console.warn("RESEND_API_KEY not set; survey response", id, "saved without notification");
     return false;
   }
-  const to = process.env.SURVEY_NOTIFY_EMAIL ?? "info@barlow-labs.com";
+  const to = process.env.SURVEY_NOTIFY_EMAIL ?? "hello@yoova.com";
   const from = process.env.SURVEY_FROM_EMAIL ?? "Barlow Labs Surveys <surveys@barlow-labs.com>";
   const site = process.env.SITE_URL ?? "https://barlow-labs.com";
   const label = (v: number | null) => (v ? `${v} · ${survey.scale[v - 1].short}` : "not rated");

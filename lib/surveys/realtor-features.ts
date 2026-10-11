@@ -16,7 +16,7 @@ export const realtorFeatures: Survey = {
   writeInPrompt:
     "Is there a feature you'd want that isn't listed? Describe it and tell us how valuable it would be.",
   thankYou:
-    "Your answers are in. They go straight to the team deciding what Yoova builds next. For early access or a demo, email info@barlow-labs.com.",
+    "Your answers are in. They go straight to the team deciding what Yoova builds next. For early access or a demo, email hello@yoova.com.",
   sections: [
     {
       id: "today",
