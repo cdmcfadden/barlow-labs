@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { WaitlistForm } from "./WaitlistForm";
 
 export const metadata: Metadata = {
@@ -69,6 +70,46 @@ export default function YoovaPage() {
               <p className="text-card-foreground/90 leading-relaxed text-[15px]">{f.body}</p>
             </article>
           ))}
+        </div>
+      </section>
+
+      <section id="text" className="py-12 border-t border-border/60">
+        <div className="mx-auto max-w-xl">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">Text yoova</h2>
+          <p className="mt-3 text-muted-foreground leading-relaxed">
+            Ask about your home by text and get the updates you ask for. Text{" "}
+            <strong className="text-foreground">YOOVA</strong> to{" "}
+            <a href="sms:+19566543211?&body=YOOVA" className="text-accent hover:underline whitespace-nowrap">
+              (956) 654-3211
+            </a>{" "}
+            to sign up.
+          </p>
+          <div className="mt-6 rounded-lg border border-border bg-card p-6 text-[15px] leading-relaxed text-card-foreground/90">
+            <p>
+              By texting YOOVA, you agree to receive text messages from yoova, operated by Barlow
+              Labs, about your own home: answers to questions you text us (such as your saved
+              pros&rsquo; contact details, warranties, or upcoming maintenance) and updates you
+              request, such as a repair being completed or a maintenance task coming due. We do not
+              send marketing messages.
+            </p>
+            <p className="mt-3">
+              Message frequency varies. Msg &amp; data rates may apply. Reply{" "}
+              <strong>HELP</strong> for help or <strong>STOP</strong> to opt out at any time.
+              Consent is not a condition of any purchase. We do not share your mobile number or
+              opt-in information with third parties for their marketing.
+            </p>
+            <p className="mt-3">
+              See our{" "}
+              <Link href="/terms#text-messaging" className="text-accent hover:underline">
+                Terms &amp; Conditions
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy" className="text-accent hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          </div>
         </div>
       </section>
 
