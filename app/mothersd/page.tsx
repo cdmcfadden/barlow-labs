@@ -48,10 +48,11 @@ export default function MothersdPage() {
         </h1>
         <p className="mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
           A dedication for the mother in your life. mothersd.ai turned your memories into a letter,
-          a portrait, and a keepsake, something no store sells.
+          a portrait, and a keepsake, something no store sells. It was a great success, and we're
+          grateful to everyone who made it one.
         </p>
         <p className="mt-4 max-w-2xl rounded-lg border border-border bg-card px-4 py-3 text-sm text-card-foreground/90 leading-relaxed">
-          mothersd.ai is no longer in service and can't create new dedications. This page is a
+          mothersd.ai has wrapped up and is no longer creating new dedications. This page is a
           record of what we built.
         </p>
       </section>
@@ -80,8 +81,9 @@ export default function MothersdPage() {
             Thank you
           </h2>
           <p className="mt-3 text-muted-foreground leading-relaxed">
-            Thanks to everyone who took ninety seconds to tell a story about their mom. See what
-            else we're building at Barlow Labs.
+            Thank you to every customer who took ninety seconds to tell a story about their mom.
+            You made mothersd.ai a great success. We hope to launch related products again in the
+            future, and we'd love to have you back. See what else we're building at Barlow Labs.
           </p>
           <a
             href="/"
