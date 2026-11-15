@@ -4,10 +4,14 @@
  * /members/surveys/<slug>.
  */
 
+export type ChoiceOption = { value: string; label: string };
+
 export type RatingQuestion = {
   id: string; // stable key stored with each answer — never rename once live
   label: string;
   detail?: string;
+  /** When present this is a required pick-one question instead of a 1–5 rating. */
+  options?: ChoiceOption[];
 };
 
 export type RatingSection = {
@@ -15,6 +19,10 @@ export type RatingSection = {
   title: string;
   description?: string;
   questions: RatingQuestion[];
+  /** Overrides the survey's scale for this section (e.g. agree/disagree vs. feature value). */
+  scale?: ScaleLabel[];
+  /** Short label for the results table. Defaults to the Today/Roadmap logic of the realtor survey. */
+  tag?: string;
 };
 
 export type ScaleLabel = { value: 1 | 2 | 3 | 4 | 5; short: string; long: string };
@@ -26,6 +34,8 @@ export type Survey = {
   intro: string;
   /** Who the survey is for, shown in the notification email. */
   audience: string;
+  /** Placeholder text for the name and email boxes. Defaults suit the realtor survey. */
+  placeholders?: { name: string; email: string };
   scale: ScaleLabel[];
   sections: RatingSection[];
   /** Number of "suggest your own feature" write-ins, each with its own 1–5 rating. */
@@ -36,6 +46,8 @@ export type Survey = {
 
 export type SurveyAnswers = {
   ratings: Record<string, number>;
+  /** Answers to pick-one questions, keyed by question id → option value. */
+  choices?: Record<string, string>;
   writeIns: { feature: string; rating: number | null }[];
 };
 
@@ -49,4 +61,12 @@ export const DEFAULT_SCALE: ScaleLabel[] = [
 
 export function allQuestions(survey: Survey): RatingQuestion[] {
   return survey.sections.flatMap((s) => s.questions);
+}
+
+export function isChoice(q: RatingQuestion): boolean {
+  return !!q.options?.length;
+}
+
+export function scaleFor(survey: Pick<Survey, "scale">, section: Pick<RatingSection, "scale">): ScaleLabel[] {
+  return section.scale ?? survey.scale;
 }

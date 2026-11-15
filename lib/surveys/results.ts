@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import type { Survey, SurveyAnswers } from "./types";
+import { isChoice, type Survey, type SurveyAnswers } from "./types";
 
 export type ResponseRow = {
   id: number;
@@ -14,6 +14,8 @@ export type FeatureStat = {
   id: string;
   label: string;
   section: string;
+  sectionId: string;
+  tag: string;
   n: number;
   mean: number;
   topTwo: number; // share rating 4 or 5
@@ -34,7 +36,7 @@ export async function loadResponses(slug: string) {
 export function featureStats(survey: Survey, rows: ResponseRow[]): FeatureStat[] {
   return survey.sections
     .flatMap((s) =>
-      s.questions.map((q) => {
+      s.questions.filter((q) => !isChoice(q)).map((q) => {
         const counts = [0, 0, 0, 0, 0];
         for (const r of rows) {
           const v = r.answers.ratings?.[q.id];
@@ -46,6 +48,8 @@ export function featureStats(survey: Survey, rows: ResponseRow[]): FeatureStat[]
           id: q.id,
           label: q.label,
           section: s.title,
+          sectionId: s.id,
+          tag: s.tag ?? (s.title.startsWith("Features available") ? "Today" : "Roadmap"),
           n,
           mean: n ? sum / n : 0,
           topTwo: n ? (counts[3] + counts[4]) / n : 0,
@@ -54,4 +58,20 @@ export function featureStats(survey: Survey, rows: ResponseRow[]): FeatureStat[]
       }),
     )
     .sort((a, b) => b.mean - a.mean || b.topTwo - a.topTwo);
+}
+
+export type ChoiceStat = { id: string; label: string; n: number; options: { value: string; label: string; count: number }[] };
+
+/** Tallies for pick-one questions (e.g. willingness to pay). */
+export function choiceStats(survey: Survey, rows: ResponseRow[]): ChoiceStat[] {
+  return survey.sections.flatMap((s) =>
+    s.questions.filter(isChoice).map((q) => {
+      const options = q.options!.map((o) => ({
+        value: o.value,
+        label: o.label,
+        count: rows.filter((r) => r.answers.choices?.[q.id] === o.value).length,
+      }));
+      return { id: q.id, label: q.label, n: options.reduce((a, o) => a + o.count, 0), options };
+    }),
+  );
 }

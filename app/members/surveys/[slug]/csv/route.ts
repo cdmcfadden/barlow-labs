@@ -20,7 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ slug: s
   for (let i = 0; i < survey.writeIns; i++) header.push(`writein_${i + 1}`, `writein_${i + 1}_rating`);
   const lines = [header.join(",")];
   for (const r of all) {
-    const row: unknown[] = [new Date(r.created_at).toISOString(), r.name, r.email, ...qs.map((q) => r.answers.ratings?.[q.id])];
+    const row: unknown[] = [new Date(r.created_at).toISOString(), r.name, r.email, ...qs.map((q) => r.answers.choices?.[q.id] ?? r.answers.ratings?.[q.id])];
     for (let i = 0; i < survey.writeIns; i++) {
       const w = r.answers.writeIns?.[i];
       row.push(w?.feature, w?.rating);

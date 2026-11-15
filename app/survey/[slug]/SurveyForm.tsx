@@ -2,9 +2,54 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { submitSurvey, type SubmitState } from "./actions";
-import type { ScaleLabel, Survey } from "@/lib/surveys/types";
+import { isChoice, scaleFor, type ChoiceOption, type ScaleLabel, type Survey } from "@/lib/surveys/types";
 
-type Props = { survey: Pick<Survey, "slug" | "scale" | "sections" | "writeIns" | "writeInPrompt"> };
+type Props = { survey: Pick<Survey, "slug" | "scale" | "sections" | "writeIns" | "writeInPrompt" | "placeholders"> };
+
+function Legend({ scale, title }: { scale: ScaleLabel[]; title: string }) {
+  return (
+    <section className="rounded-lg border border-border bg-card/60 p-5">
+      <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-accent">{title}</h2>
+      <ol className="mt-3 grid gap-x-6 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
+        {scale.map((s) => (
+          <li key={s.value}>
+            <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded bg-secondary text-xs font-semibold text-foreground">{s.value}</span>
+            {s.long}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+function ChoiceRow({
+  name, value, onChange, options, invalid, label,
+}: {
+  name: string; value: string | null; onChange: (v: string) => void; options: ChoiceOption[]; invalid?: boolean; label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} aria-invalid={invalid || undefined} className="grid gap-2 sm:grid-cols-2">
+      {options.map((o) => {
+        const checked = value === o.value;
+        return (
+          <label
+            key={o.value}
+            className={`flex cursor-pointer items-center rounded-md border px-3 py-2.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring ${
+              checked
+                ? "border-primary bg-primary text-primary-foreground"
+                : invalid
+                  ? "border-red-500/70 hover:border-accent"
+                  : "border-border hover:border-accent hover:bg-secondary/60"
+            }`}
+          >
+            <input type="radio" name={name} value={o.value} checked={checked} onChange={() => onChange(o.value)} className="sr-only" />
+            {o.label}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
 
 function RatingRow({
   name,
@@ -59,6 +104,8 @@ export function SurveyForm({ survey }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [ratings, setRatings] = useState<Record<string, number>>({});
+  const [choices, setChoices] = useState<Record<string, string>>({});
+  const perSectionScale = survey.sections.some((s) => s.scale);
   const [writeIns, setWriteIns] = useState(() =>
     Array.from({ length: survey.writeIns }, () => ({ feature: "", rating: null as number | null })),
   );
@@ -66,7 +113,7 @@ export function SurveyForm({ survey }: Props) {
   const [missing, setMissing] = useState<Set<string>>(new Set());
   const [pending, startTransition] = useTransition();
 
-  const rated = questions.filter((q) => ratings[q.id]).length;
+  const rated = questions.filter((q) => ratings[q.id] || choices[q.id]).length;
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -74,7 +121,7 @@ export function SurveyForm({ survey }: Props) {
     const gaps = new Set<string>();
     if (!name.trim()) gaps.add("name");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) gaps.add("email");
-    questions.forEach((q) => !ratings[q.id] && gaps.add(q.id));
+    questions.forEach((q) => !(ratings[q.id] || choices[q.id]) && gaps.add(q.id));
     setMissing(gaps);
     if (gaps.size) {
       const first = [...gaps][0];
@@ -84,7 +131,7 @@ export function SurveyForm({ survey }: Props) {
         status: "error",
         message: gaps.has("name") || gaps.has("email")
           ? "Please add your name and a valid email at the top."
-          : `Please rate every feature — ${n} still need a rating.`,
+          : `Please answer every question — ${n} still need an answer.`,
       });
       return;
     }
@@ -126,7 +173,7 @@ export function SurveyForm({ survey }: Props) {
               id="name" name="name" required autoComplete="name" value={name}
               onChange={(e) => setName(e.target.value)}
               className={`${field} mt-1.5 ${missing.has("name") ? "border-red-500/70" : "border-border"}`}
-              placeholder="Jane Agent"
+              placeholder={survey.placeholders?.name ?? "Jane Agent"}
             />
           </div>
           <div>
@@ -135,32 +182,28 @@ export function SurveyForm({ survey }: Props) {
               id="email" name="email" type="email" required autoComplete="email" value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={`${field} mt-1.5 ${missing.has("email") ? "border-red-500/70" : "border-border"}`}
-              placeholder="you@brokerage.com"
+              placeholder={survey.placeholders?.email ?? "you@brokerage.com"}
             />
           </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-card/60 p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-accent">How to rate</h2>
-        <ol className="mt-3 grid gap-x-6 gap-y-1.5 text-sm text-muted-foreground sm:grid-cols-2">
-          {survey.scale.map((s) => (
-            <li key={s.value}>
-              <span className="mr-2 inline-flex h-5 w-5 items-center justify-center rounded bg-secondary text-xs font-semibold text-foreground">{s.value}</span>
-              {s.long}
-            </li>
-          ))}
-        </ol>
-      </section>
+      {!perSectionScale && <Legend scale={survey.scale} title="How to rate" />}
 
       {survey.sections.map((section) => (
         <section key={section.id}>
           <h2 className="text-2xl font-semibold tracking-tight">{section.title}</h2>
           {section.description && <p className="mt-2 text-muted-foreground">{section.description}</p>}
+          {perSectionScale && (
+            <div className="mt-4">
+              <Legend scale={scaleFor(survey, section)} title="How to rate" />
+            </div>
+          )}
           <ol className="mt-5 divide-y divide-border rounded-lg border border-border bg-card">
             {section.questions.map((q) => {
               const n = questions.indexOf(q) + 1;
-              const bad = missing.has(q.id) && !ratings[q.id];
+              const bad = missing.has(q.id) && !(ratings[q.id] || choices[q.id]);
+              const scale = scaleFor(survey, section);
               return (
                 <li key={q.id} id={`row_${q.id}`} className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-6 ${bad ? "bg-red-500/5" : ""}`}>
                   <div className="flex-1">
@@ -170,11 +213,21 @@ export function SurveyForm({ survey }: Props) {
                     </p>
                     {q.detail && <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{q.detail}</p>}
                   </div>
-                  <RatingRow
-                    name={`q_${q.id}`} label={q.label} scale={survey.scale} invalid={bad}
-                    value={ratings[q.id] ?? null}
-                    onChange={(v) => setRatings((r) => ({ ...r, [q.id]: v }))}
-                  />
+                  {isChoice(q) ? (
+                    <div className="sm:w-[420px] sm:shrink-0">
+                      <ChoiceRow
+                        name={`q_${q.id}`} label={q.label} options={q.options!} invalid={bad}
+                        value={choices[q.id] ?? null}
+                        onChange={(v) => setChoices((c) => ({ ...c, [q.id]: v }))}
+                      />
+                    </div>
+                  ) : (
+                    <RatingRow
+                      name={`q_${q.id}`} label={q.label} scale={scale} invalid={bad}
+                      value={ratings[q.id] ?? null}
+                      onChange={(v) => setRatings((r) => ({ ...r, [q.id]: v }))}
+                    />
+                  )}
                 </li>
               );
             })}
@@ -217,7 +270,7 @@ export function SurveyForm({ survey }: Props) {
       <div className="sticky bottom-0 -mx-6 border-t border-border/60 bg-background/90 px-6 py-4 backdrop-blur">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            {rated} of {questions.length} features rated
+            {rated} of {questions.length} answered
           </p>
           <button
             type="submit" disabled={pending}

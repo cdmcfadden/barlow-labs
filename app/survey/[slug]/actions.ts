@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { Resend } from "resend";
 import { getSql } from "@/lib/db";
 import { getSurvey } from "@/lib/surveys";
-import { allQuestions, type Survey, type SurveyAnswers } from "@/lib/surveys/types";
+import { allQuestions, isChoice, scaleFor, type Survey, type SurveyAnswers } from "@/lib/surveys/types";
 
 export type SubmitState = {
   status: "idle" | "success" | "error";
@@ -40,8 +40,15 @@ export async function submitSurvey(
   }
 
   const ratings: Record<string, number> = {};
+  const choices: Record<string, string> = {};
   const missing: string[] = [];
   for (const q of allQuestions(survey)) {
+    if (isChoice(q)) {
+      const v = String(formData.get(`q_${q.id}`) ?? "");
+      if (q.options!.some((o) => o.value === v)) choices[q.id] = v;
+      else missing.push(q.id);
+      continue;
+    }
     const r = rating(formData.get(`q_${q.id}`));
     if (r === null) missing.push(q.id);
     else ratings[q.id] = r;
@@ -49,7 +56,7 @@ export async function submitSurvey(
   if (missing.length) {
     return {
       status: "error",
-      message: `Please rate every feature — ${missing.length} still need a rating.`,
+      message: `Please answer every question — ${missing.length} still need an answer.`,
       missing,
     };
   }
@@ -61,7 +68,7 @@ export async function submitSurvey(
     if (feature) writeIns.push({ feature, rating: r });
   }
 
-  const answers: SurveyAnswers = { ratings, writeIns };
+  const answers: SurveyAnswers = { ratings, ...(Object.keys(choices).length ? { choices } : {}), writeIns };
   const userAgent = ((await headers()).get("user-agent") ?? "").slice(0, 400);
 
   let id: number;
@@ -108,7 +115,11 @@ async function notify(
   const to = process.env.SURVEY_NOTIFY_EMAIL ?? "hello@yoova.com";
   const from = process.env.SURVEY_FROM_EMAIL ?? "Barlow Labs Surveys <surveys@barlow-labs.com>";
   const site = process.env.SITE_URL ?? "https://barlow-labs.com";
-  const label = (v: number | null) => (v ? `${v} · ${survey.scale[v - 1].short}` : "not rated");
+  const label = (v: number | null, scale = survey.scale) => (v ? `${v} · ${scale[v - 1].short}` : "not rated");
+  const answerLabel = (q: Survey["sections"][number]["questions"][number], scale: Survey["scale"]) =>
+    isChoice(q)
+      ? (q.options!.find((o) => o.value === answers.choices?.[q.id])?.label ?? "not answered")
+      : label(answers.ratings[q.id], scale);
 
   const sectionsHtml = survey.sections
     .map(
@@ -118,7 +129,7 @@ async function notify(
           .map(
             (q) =>
               `<tr><td style="border-bottom:1px solid #eee">${esc(q.label)}</td>` +
-              `<td style="border-bottom:1px solid #eee;white-space:nowrap"><strong>${esc(label(answers.ratings[q.id]))}</strong></td></tr>`,
+              `<td style="border-bottom:1px solid #eee;white-space:nowrap"><strong>${esc(answerLabel(q, scaleFor(survey, s)))}</strong></td></tr>`,
           )
           .join("") +
         `</table>`,
@@ -130,7 +141,7 @@ async function notify(
       `</ul>`
     : `<p><em>No write-in features.</em></p>`;
   const sectionsText = survey.sections
-    .map((s) => `${s.title}\n` + s.questions.map((q) => `  ${label(answers.ratings[q.id])}  ${q.label}`).join("\n"))
+    .map((s) => `${s.title}\n` + s.questions.map((q) => `  ${answerLabel(q, scaleFor(survey, s))}  ${q.label}`).join("\n"))
     .join("\n\n");
   const writeInText = answers.writeIns.map((w) => `  ${label(w.rating)}  ${w.feature}`).join("\n") || "  none";
   const resultsUrl = `${site}/members/surveys/${survey.slug}`;

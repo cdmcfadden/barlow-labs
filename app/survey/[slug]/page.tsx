@@ -28,11 +28,11 @@ export default async function SurveyPage({ params }: Params) {
         <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">{survey.title}</h1>
         <p className="mt-5 max-w-2xl text-lg leading-relaxed text-muted-foreground">{survey.intro}</p>
         <p className="mt-3 text-sm text-muted-foreground">
-          {count} quick ratings{survey.writeIns ? ` plus ${survey.writeIns} optional ideas of your own` : ""}. About 5 minutes.
+          {count} quick questions{survey.writeIns ? ` plus ${survey.writeIns} optional ideas of your own` : ""}. About 5 minutes.
         </p>
       </section>
       <SurveyForm
-        survey={{ slug: survey.slug, scale: survey.scale, sections: survey.sections, writeIns: survey.writeIns, writeInPrompt: survey.writeInPrompt }}
+        survey={{ slug: survey.slug, scale: survey.scale, sections: survey.sections, writeIns: survey.writeIns, writeInPrompt: survey.writeInPrompt, placeholders: survey.placeholders }}
       />
     </div>
   );
